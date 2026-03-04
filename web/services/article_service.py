@@ -106,6 +106,16 @@ class SessionManager:
             self._sessions[session_id] = session
             return session
 
+    def cancel_active(self) -> str | None:
+        """Cancel any active session. Returns cancelled session_id or None."""
+        with self._lock:
+            for s in self._sessions.values():
+                if s.status in ("collecting", "scoring", "scraping"):
+                    s.status = "error"
+                    s.error_message = "새 세션 시작으로 취소됨"
+                    return s.session_id
+            return None
+
     def _cleanup(self) -> None:
         """Remove old completed/error sessions beyond the most recent 5."""
         finished = [
@@ -280,6 +290,7 @@ def get_articles(session_id: str) -> dict[str, list[ArticleCard]] | None:
                 image_local=image_local,
                 replacement_count=session.replacement_counts.get(global_index, 0),
                 max_replacements=MAX_REPLACEMENT_PER_SLOT,
+                scrape_status=_determine_scrape_status(body),
             )
             cards.append(card)
             global_index += 1
@@ -434,6 +445,15 @@ def _find_replacement(
     return filtered[0]
 
 
+def _determine_scrape_status(body: str) -> str:
+    """Determine scrape status based on body content."""
+    if not body or "(본문을 추출할 수 없습니다)" in body:
+        return "failed"
+    if len(body) < 200:
+        return "partial"
+    return "ok"
+
+
 def _article_to_card(session: GenerationSession, index: int, article: ScoredArticle) -> ArticleCard:
     """Convert a ScoredArticle to an ArticleCard."""
     body = session.scraped_texts.get(article.link, "")
@@ -458,7 +478,26 @@ def _article_to_card(session: GenerationSession, index: int, article: ScoredArti
         image_local=image_local,
         replacement_count=session.replacement_counts.get(index, 0),
         max_replacements=MAX_REPLACEMENT_PER_SLOT,
+        scrape_status=_determine_scrape_status(body),
     )
+
+
+# ------------------------------------------------------------------
+# Update article body
+# ------------------------------------------------------------------
+
+def update_article_body(session_id: str, index: int, new_body: str) -> bool:
+    """Update the body text for an article by index."""
+    session = session_manager.get(session_id)
+    if session is None or session.status != "ready":
+        return False
+
+    _, _, article = _find_article_by_index(session, index)
+    if article is None:
+        return False
+
+    session.scraped_texts[article.link] = new_body
+    return True
 
 
 # ------------------------------------------------------------------

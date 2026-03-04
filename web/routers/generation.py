@@ -27,6 +27,7 @@ from web.models import (
     ReplaceRequest,
     ReplaceResponse,
     ReplacementDetail,
+    UpdateArticleBodyRequest,
 )
 from web.services import article_service, history_service
 
@@ -40,6 +41,13 @@ KST = timezone(timedelta(hours=9))
 # ------------------------------------------------------------------
 # POST /start
 # ------------------------------------------------------------------
+
+@router.post("/cancel")
+async def cancel_generation():
+    """활성 세션을 취소합니다."""
+    cancelled = article_service.session_manager.cancel_active()
+    return {"cancelled_session_id": cancelled}
+
 
 @router.post("/start", response_model=GenerationStartResponse)
 async def start_generation():
@@ -218,6 +226,26 @@ async def approve_replacement(session_id: str, req: ReplaceApproveRequest):
         raise HTTPException(status_code=400, detail="교체 승인/취소에 실패했습니다")
 
     return {"status": "ok", "action": req.action, "indices": req.article_indices}
+
+
+# ------------------------------------------------------------------
+# PATCH /{session_id}/articles/{index}/body
+# ------------------------------------------------------------------
+
+@router.patch("/{session_id}/articles/{index}/body")
+async def update_article_body(session_id: str, index: int, req: UpdateArticleBodyRequest):
+    """기사 본문을 수정합니다."""
+    session = article_service.session_manager.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+    if session.status != "ready":
+        raise HTTPException(status_code=409, detail="기사 생성이 완료된 후에만 수정할 수 있습니다")
+
+    ok = article_service.update_article_body(session_id, index, req.body_full)
+    if not ok:
+        raise HTTPException(status_code=400, detail="본문 수정에 실패했습니다")
+
+    return {"status": "ok", "index": index}
 
 
 # ------------------------------------------------------------------
