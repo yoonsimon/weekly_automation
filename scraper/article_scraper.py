@@ -1,18 +1,20 @@
 """Article scraper module.
 
 Scrapes article text and images from URLs using site-specific CSS selectors
-(ported from reframe_server.py) with og:description fallback.
+with trafilatura fallback and og:description as final fallback.
 """
 
 import logging
 import os
 import re
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
+import trafilatura
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,11 @@ HEADERS = {
         "Chrome/131.0.0.0 Safari/537.36"
     ),
 }
+
+MAX_RETRIES = 2        # Total attempts = MAX_RETRIES + 1
+HTTP_TIMEOUT = 20      # seconds
+RETRY_DELAY = 1        # seconds between retries
+MIN_IMAGE_BYTES = 5000 # minimum image file size to keep
 
 # Site-specific body selectors (from reframe_server.py, order matters)
 BODY_SELECTORS = [
@@ -80,6 +87,9 @@ NOISE_PATTERNS = [
     "slotId",
     "MEDIA_795",
 ]
+
+# Patterns to skip when searching for article images in <img> tags
+_IMG_SKIP_PATTERNS = ("logo", "icon", "avatar", "badge", "btn", "banner_ad", "ad_", "sponsor")
 
 
 @dataclass
@@ -153,10 +163,11 @@ def _clean_body_text(element) -> str:
     return result.strip()
 
 
-def _extract_body(soup: BeautifulSoup) -> str:
-    """Extract article body using site-specific CSS selectors."""
-    # Remove unwanted elements first
-    for tag in soup.find_all(
+def _extract_body(soup: BeautifulSoup, raw_html: str = "") -> str:
+    """Extract article body using CSS selectors, trafilatura fallback, then og:description."""
+    # Remove unwanted elements first (work on a copy to not affect image extraction)
+    body_soup = BeautifulSoup(str(soup), "html.parser")
+    for tag in body_soup.find_all(
         ["script", "style", "nav", "header", "footer", "aside",
          "iframe", "noscript", "figure", "figcaption", "button", "form"]
     ):
@@ -165,7 +176,7 @@ def _extract_body(soup: BeautifulSoup) -> str:
     # Try selectors in order
     for selector in BODY_SELECTORS:
         try:
-            element = soup.select_one(selector)
+            element = body_soup.select_one(selector)
         except Exception:
             continue
         if element:
@@ -173,8 +184,86 @@ def _extract_body(soup: BeautifulSoup) -> str:
             if len(text) > 100:
                 return text
 
-    # Fallback: og:description
+    # Fallback 1: trafilatura (installed but previously unused)
+    html_for_traf = raw_html if raw_html else str(soup)
+    try:
+        traf_text = trafilatura.extract(
+            html_for_traf,
+            include_comments=False,
+            include_tables=False,
+            favor_precision=True,
+        )
+        if traf_text and len(traf_text) > 100:
+            logger.info("trafilatura로 본문 추출 성공 (%d자)", len(traf_text))
+            return traf_text
+    except Exception:
+        logger.warning("trafilatura 추출 실패")
+
+    # Fallback 2: og:description
     return _extract_og(soup, "og:description")
+
+
+def _extract_image_candidates(soup: BeautifulSoup, base_url: str) -> list[str]:
+    """Extract image URL candidates from multiple sources.
+
+    Priority order: og:image -> twitter:image -> JSON-LD image -> first large <img> in body.
+    Returns a deduplicated list of candidate URLs.
+    """
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def _add(raw_url: str) -> None:
+        if not raw_url:
+            return
+        absolute = urljoin(base_url, raw_url) if not raw_url.startswith("http") else raw_url
+        if absolute not in seen:
+            seen.add(absolute)
+            candidates.append(absolute)
+
+    # 1. og:image
+    _add(_extract_og(soup, "og:image"))
+
+    # 2. twitter:image
+    for attr in ({"name": "twitter:image"}, {"property": "twitter:image"}):
+        tag = soup.find("meta", attrs=attr)
+        if tag and tag.get("content"):
+            _add(tag["content"].strip())
+
+    # 3. JSON-LD structured data
+    import json as _json
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = _json.loads(script.string)
+            if isinstance(data, list):
+                data = data[0] if data else {}
+            img = data.get("image") or data.get("thumbnailUrl") or ""
+            if isinstance(img, list):
+                for item in img:
+                    _add(item.get("url", "") if isinstance(item, dict) else item)
+            elif isinstance(img, dict):
+                _add(img.get("url", ""))
+            else:
+                _add(img)
+        except Exception:
+            pass
+
+    # 4. First large image in body
+    for img in soup.find_all("img", src=True):
+        src = img["src"]
+        src_lower = src.lower()
+        if any(skip in src_lower for skip in _IMG_SKIP_PATTERNS):
+            continue
+        w = img.get("width", "")
+        if w:
+            try:
+                if int(w) < 200:
+                    continue
+            except (ValueError, TypeError):
+                pass
+        _add(src)
+        break  # only first qualifying body image
+
+    return candidates
 
 
 def _content_type_to_ext(content_type: str, url: str) -> str:
@@ -201,55 +290,70 @@ def _content_type_to_ext(content_type: str, url: str) -> str:
 
 def _download_og_image(
     image_url: str,
+    article_url: str = "",
     output_dir: str | None = None,
-    min_size_bytes: int = 10000,
+    min_size_bytes: int = MIN_IMAGE_BYTES,
 ) -> str | None:
-    """Download OG image and return file path, or None.
+    """Download image and return file path, or None.
 
-    Args:
-        image_url: URL of the image to download.
-        output_dir: If given, save to this directory (persistent).
-                    If None, save to system temp directory.
-        min_size_bytes: Minimum file size to keep.
+    Includes retry logic for transient errors (5xx/timeout).
+    4xx responses (404 etc.) are treated as permanent failures and skip retry.
     """
     if not image_url:
         return None
-    try:
-        resp = requests.get(image_url, headers=HEADERS, stream=True, timeout=15)
-        resp.raise_for_status()
 
-        content_type = resp.headers.get("Content-Type", "")
-        ext = _content_type_to_ext(content_type, image_url)
+    headers = {**HEADERS}
+    if article_url:
+        headers["Referer"] = article_url
 
-        if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
-            tmp = tempfile.NamedTemporaryFile(
-                suffix=ext, prefix="article_img_", dir=output_dir, delete=False
-            )
-        else:
-            tmp = tempfile.NamedTemporaryFile(
-                suffix=ext, prefix="article_img_", delete=False
-            )
+    for attempt in range(2):  # max 2 attempts
         try:
-            for chunk in resp.iter_content(chunk_size=8192):
-                tmp.write(chunk)
-            tmp.close()
+            resp = requests.get(image_url, headers=headers, stream=True, timeout=HTTP_TIMEOUT)
 
-            actual_size = os.path.getsize(tmp.name)
-            if actual_size < min_size_bytes:
-                os.unlink(tmp.name)
+            # 4xx: permanent failure, no retry
+            if 400 <= resp.status_code < 500:
+                logger.warning("이미지 %d 응답 (스킵): %s", resp.status_code, image_url[:80])
                 return None
 
-            logger.info("Downloaded OG image: %s -> %s", image_url[:80], tmp.name)
-            return tmp.name
+            resp.raise_for_status()
+
+            content_type = resp.headers.get("Content-Type", "")
+            ext = _content_type_to_ext(content_type, image_url)
+
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+                tmp = tempfile.NamedTemporaryFile(
+                    suffix=ext, prefix="article_img_", dir=output_dir, delete=False
+                )
+            else:
+                tmp = tempfile.NamedTemporaryFile(
+                    suffix=ext, prefix="article_img_", delete=False
+                )
+            try:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    tmp.write(chunk)
+                tmp.close()
+
+                actual_size = os.path.getsize(tmp.name)
+                if actual_size < min_size_bytes:
+                    os.unlink(tmp.name)
+                    logger.debug("이미지 크기 미달 (%d bytes): %s", actual_size, image_url[:80])
+                    return None
+
+                logger.info("이미지 다운로드 성공: %s -> %s", image_url[:80], tmp.name)
+                return tmp.name
+            except Exception:
+                tmp.close()
+                if os.path.exists(tmp.name):
+                    os.unlink(tmp.name)
+                raise
         except Exception:
-            tmp.close()
-            if os.path.exists(tmp.name):
-                os.unlink(tmp.name)
-            raise
-    except Exception:
-        logger.warning("Failed to download OG image: %s", image_url[:80])
-        return None
+            if attempt == 0:
+                logger.debug("이미지 다운로드 재시도 (5xx/네트워크): %s", image_url[:80])
+                time.sleep(0.5)
+            else:
+                logger.warning("이미지 다운로드 실패 (2회 시도): %s", image_url[:80])
+    return None
 
 
 def _detect_encoding(resp: requests.Response) -> str:
@@ -280,14 +384,33 @@ def _detect_encoding(resp: requests.Response) -> str:
     return "utf-8"
 
 
+def _fetch_page(url: str) -> tuple[str, str]:
+    """Fetch a page with retries. Returns (html_text, final_url).
+
+    Raises Exception if all retries fail.
+    """
+    last_error = None
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=HTTP_TIMEOUT, allow_redirects=True)
+            resp.encoding = _detect_encoding(resp)
+            return resp.text, resp.url
+        except Exception as e:
+            last_error = e
+            if attempt < MAX_RETRIES:
+                logger.debug("페이지 요청 재시도 (%d/%d): %s", attempt + 1, MAX_RETRIES, url[:80])
+                time.sleep(RETRY_DELAY)
+    raise last_error
+
+
 def scrape_article(
     url: str, title: str, download_images: bool = True,
     image_output_dir: str | None = None,
 ) -> ScrapedArticle:
-    """Scrape article text and OG image from a URL.
+    """Scrape article text and image from a URL.
 
-    Uses site-specific CSS selectors (BODY_SELECTORS) with noise filtering.
-    Falls back to og:description when body selectors fail.
+    Uses site-specific CSS selectors with trafilatura fallback and noise filtering.
+    Includes retry logic for network resilience.
     """
     logger.info("Scraping article: %s", url)
 
@@ -296,34 +419,34 @@ def scrape_article(
             "Google News RSS URL detected: %s — 실제 기사 URL을 사용하세요.", url,
         )
 
+    # Fetch page with retries
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=15, allow_redirects=True)
-        resp.encoding = _detect_encoding(resp)
-        html = resp.text
+        html, final_url = _fetch_page(url)
+        if final_url != url:
+            url = final_url
     except Exception:
-        logger.exception("페이지 다운로드 실패: %s", url)
+        logger.exception("페이지 다운로드 실패 (%d회 시도): %s", MAX_RETRIES + 1, url)
         return ScrapedArticle(title=title, url=url, text="(본문을 추출할 수 없습니다)")
 
     soup = BeautifulSoup(html, "html.parser")
 
-    # Portal sites (nate, daum) only show summaries — follow "원문" link
+    # Portal sites — follow "원문" link
     if "news.nate.com" in url:
         origin_link = soup.find("a", string="원문")
         if origin_link and origin_link.get("href"):
             origin_url = origin_link["href"]
             logger.info("포털 원문 링크 추적: %s -> %s", url[:40], origin_url[:80])
             try:
-                resp = requests.get(origin_url, headers=HEADERS, timeout=15, allow_redirects=True)
-                resp.encoding = _detect_encoding(resp)
-                soup = BeautifulSoup(resp.text, "html.parser")
+                html, _ = _fetch_page(origin_url)
+                soup = BeautifulSoup(html, "html.parser")
                 url = origin_url
             except Exception:
                 logger.warning("원문 링크 접근 실패, 포털 페이지로 대체: %s", origin_url[:80])
 
-    # Extract body with selectors
-    text = _extract_body(soup)
+    # Extract body with selectors -> trafilatura -> og:description
+    text = _extract_body(soup, raw_html=html)
 
-    # Fallback if body is too short
+    # Final fallback if body is too short
     if len(text) < 50:
         desc = _extract_og(soup, "og:description")
         if desc and len(desc) > len(text):
@@ -333,16 +456,28 @@ def scrape_article(
         text = "(본문을 추출할 수 없습니다)"
         logger.warning("Could not extract text from: %s", url)
 
-    # Extract OG image (resolve relative URLs)
-    image_url = _extract_og(soup, "og:image") or ""
-    if image_url and not image_url.startswith("http"):
-        image_url = urljoin(url, image_url)
+    # Extract image candidates and try downloading in priority order
+    image_candidates = _extract_image_candidates(soup, url)
+    image_url = ""
     image_paths: list[str] = []
 
-    if download_images and image_url:
-        path = _download_og_image(image_url, output_dir=image_output_dir)
-        if path:
-            image_paths.append(path)
+    if download_images and image_candidates:
+        for candidate_url in image_candidates:
+            path = _download_og_image(
+                candidate_url,
+                article_url=url,
+                output_dir=image_output_dir,
+            )
+            if path:
+                image_url = candidate_url
+                image_paths.append(path)
+                break
+            logger.info("이미지 후보 실패, 다음 시도: %s", candidate_url[:80])
+        else:
+            # All candidates failed; store first candidate URL for reference
+            image_url = image_candidates[0] if image_candidates else ""
+    elif image_candidates:
+        image_url = image_candidates[0]
 
     return ScrapedArticle(
         title=title,

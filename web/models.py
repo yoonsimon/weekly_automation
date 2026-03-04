@@ -80,11 +80,16 @@ class ArticleCard(BaseModel):
     image_local: str
     replacement_count: int = 0
     max_replacements: int = 3
+    scrape_status: str = "ok"  # "ok" | "partial" | "failed"
 
 
 class GenerationArticlesResponse(BaseModel):
     session_id: str
     articles: dict[str, list[ArticleCard]]  # main/market/other
+
+
+class UpdateArticleBodyRequest(BaseModel):
+    body_full: str
 
 
 class ReplaceRequest(BaseModel):

@@ -321,6 +321,27 @@ img {
   color: var(--color-score-low-text);
 }
 
+/* ---------- Scrape Status Badge ---------- */
+.scrape-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.scrape-badge--partial {
+  background: var(--color-score-mid-bg);
+  color: var(--color-score-mid-text);
+}
+
+.scrape-badge--failed {
+  background: var(--color-score-low-bg);
+  color: var(--color-score-low-text);
+}
+
 /* ---------- Card ---------- */
 .card {
   background: var(--color-surface);
@@ -469,19 +490,181 @@ img {
   margin-bottom: 10px;
 }
 
+/* ---------- Body Edit ---------- */
+.body-edit-trigger {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.body-edit-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  font-size: 0.88rem;
+  font-family: var(--font-stack);
+  line-height: 1.7;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  resize: vertical;
+  outline: none;
+}
+
+.body-edit-textarea:focus {
+  border-color: var(--color-primary);
+}
+
+.body-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
 /* ---------- Category Group ---------- */
 .category-group {
   margin-bottom: 28px;
+}
+
+.category-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-primary);
 }
 
 .category-group__title {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--color-text);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--color-primary);
-  display: inline-block;
+}
+
+.category-group__title span {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-left: 6px;
+}
+
+.category-group__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sort-select {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  font-family: var(--font-stack);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  outline: none;
+}
+
+.sort-select:focus {
+  border-color: var(--color-primary);
+}
+
+/* ---------- Stepper ---------- */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 28px;
+}
+
+.stepper__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.stepper__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stepper__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transition: color 0.3s ease;
+}
+
+.stepper__connector {
+  flex: 1;
+  height: 3px;
+  min-width: 40px;
+  max-width: 80px;
+  background: var(--color-border);
+  margin: 0 8px;
+  margin-bottom: 24px;
+  border-radius: 2px;
+  transition: background 0.3s ease;
+}
+
+/* Stepper states */
+.stepper__step.active .stepper__icon {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+}
+
+.stepper__step.active .stepper__label {
+  color: var(--color-primary);
+}
+
+.stepper__step.completed .stepper__icon {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.stepper__step.completed .stepper__label {
+  color: var(--color-success);
+}
+
+.stepper__step.error .stepper__icon {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.stepper__step.error .stepper__label {
+  color: var(--color-danger);
+}
+
+.stepper__connector.completed {
+  background: var(--color-success);
+}
+
+/* ---------- Progress Error ---------- */
+.progress-error {
+  margin-top: 20px;
+}
+
+.progress-error__msg {
+  color: var(--color-danger);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 4px;
 }
 
 /* ---------- Progress ---------- */
@@ -809,13 +992,26 @@ img {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 0;
+  padding: 16px 20px;
   border-top: 1px solid var(--color-border);
   margin-top: 24px;
   position: sticky;
   bottom: 0;
-  background: var(--color-bg);
+  background: var(--color-surface);
   z-index: 50;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.action-bar__count {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+.action-bar__count.has-selection {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .action-bar__spacer {
@@ -834,14 +1030,42 @@ img {
 }
 
 .toast {
-  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
   font-size: 0.88rem;
   font-weight: 500;
   border-radius: var(--radius-sm);
   color: #fff;
   box-shadow: var(--shadow-lg);
   animation: slideIn 0.3s ease;
-  max-width: 360px;
+  max-width: 400px;
+}
+
+.toast__icon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.toast__msg {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.toast__close:hover {
+  color: #fff;
 }
 
 .toast--success {
@@ -882,6 +1106,39 @@ img {
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+
+/* ---------- Skeleton Loading ---------- */
+.skeleton-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.skeleton-line {
+  height: 14px;
+  background: linear-gradient(90deg, var(--color-border-light) 25%, var(--color-border) 50%, var(--color-border-light) 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-line--title {
+  width: 70%;
+  height: 16px;
+  margin-bottom: 10px;
+}
+
+.skeleton-line--meta {
+  width: 50%;
+  height: 12px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* ---------- Animations ---------- */
@@ -931,6 +1188,20 @@ img {
   .modal {
     width: 95%;
     padding: 20px;
+  }
+
+  .stepper__label {
+    font-size: 0.68rem;
+  }
+
+  .stepper__icon {
+    width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+  }
+
+  .stepper__connector {
+    min-width: 24px;
   }
 }
 

@@ -23,12 +23,40 @@
     <section id="state-progress" class="section">
       <div class="card">
         <div class="progress-container">
-          <h2 style="font-size:1.15rem; font-weight:700; margin-bottom:8px;">기사 수집 및 분석 중</h2>
+          <!-- Stepper -->
+          <div class="stepper" id="stepper">
+            <div class="stepper__step" data-step="collecting">
+              <div class="stepper__icon">1</div>
+              <div class="stepper__label">뉴스 수집</div>
+            </div>
+            <div class="stepper__connector"></div>
+            <div class="stepper__step" data-step="scoring">
+              <div class="stepper__icon">2</div>
+              <div class="stepper__label">분석/선별</div>
+            </div>
+            <div class="stepper__connector"></div>
+            <div class="stepper__step" data-step="scraping">
+              <div class="stepper__icon">3</div>
+              <div class="stepper__label">본문 스크래핑</div>
+            </div>
+            <div class="stepper__connector"></div>
+            <div class="stepper__step" data-step="ready">
+              <div class="stepper__icon">4</div>
+              <div class="stepper__label">완료</div>
+            </div>
+          </div>
+
           <div class="progress-bar-wrap">
             <div id="progress-bar" class="progress-bar"></div>
           </div>
           <div id="progress-step" class="progress-step">준비 중...</div>
           <div id="progress-message" class="progress-message"></div>
+
+          <!-- Error retry -->
+          <div id="progress-error" class="progress-error hidden">
+            <p id="progress-error-msg" class="progress-error__msg"></p>
+            <button id="btn-retry" class="btn btn--primary" style="margin-top:12px;">다시 시도</button>
+          </div>
         </div>
       </div>
     </section>
@@ -47,19 +75,52 @@
 
         <!-- 메인 톱픽 -->
         <div class="category-group">
-          <div class="category-group__title">메인 톱픽 (1)</div>
+          <div class="category-group__header">
+            <div class="category-group__title">메인 톱픽 <span id="stats-main"></span></div>
+            <div class="category-group__actions">
+              <select class="sort-select" data-category="main">
+                <option value="default">기본순</option>
+                <option value="score-desc">점수 높은순</option>
+                <option value="score-asc">점수 낮은순</option>
+                <option value="date-desc">최신순</option>
+              </select>
+              <button class="btn btn--secondary btn--sm select-all-btn" data-category="main">전체 선택</button>
+            </div>
+          </div>
           <div id="cards-main"></div>
         </div>
 
         <!-- 오픈마켓/소셜커머스 -->
         <div class="category-group">
-          <div class="category-group__title">오픈마켓/소셜커머스 (3)</div>
+          <div class="category-group__header">
+            <div class="category-group__title">오픈마켓/소셜커머스 <span id="stats-market"></span></div>
+            <div class="category-group__actions">
+              <select class="sort-select" data-category="market">
+                <option value="default">기본순</option>
+                <option value="score-desc">점수 높은순</option>
+                <option value="score-asc">점수 낮은순</option>
+                <option value="date-desc">최신순</option>
+              </select>
+              <button class="btn btn--secondary btn--sm select-all-btn" data-category="market">전체 선택</button>
+            </div>
+          </div>
           <div id="cards-market"></div>
         </div>
 
         <!-- 기타 커머스/IT 동향 -->
         <div class="category-group">
-          <div class="category-group__title">기타 커머스/IT 동향 (3)</div>
+          <div class="category-group__header">
+            <div class="category-group__title">기타 커머스/IT 동향 <span id="stats-other"></span></div>
+            <div class="category-group__actions">
+              <select class="sort-select" data-category="other">
+                <option value="default">기본순</option>
+                <option value="score-desc">점수 높은순</option>
+                <option value="score-asc">점수 낮은순</option>
+                <option value="date-desc">최신순</option>
+              </select>
+              <button class="btn btn--secondary btn--sm select-all-btn" data-category="other">전체 선택</button>
+            </div>
+          </div>
           <div id="cards-other"></div>
         </div>
 
@@ -74,7 +135,7 @@
 
       <!-- Action Bar -->
       <div class="action-bar">
-        <span id="selected-count" style="font-size:0.85rem; color:var(--color-text-secondary);">선택: 0건</span>
+        <span id="selected-count" class="action-bar__count">선택: 0건</span>
         <div class="action-bar__spacer"></div>
         <button id="btn-replace" class="btn btn--secondary" disabled>선택 기사 교체</button>
         <button id="btn-confirm" class="btn btn--primary">확정 저장</button>
