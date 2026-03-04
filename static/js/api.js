@@ -1,0 +1,159 @@
+/**
+ * api.js - 주간 뉴스 대시보드 API 클라이언트 유틸리티
+ */
+
+const API_BASE = '';  // same origin
+
+/**
+ * GET 요청
+ * @param {string} url - API endpoint (예: /api/history/recent)
+ * @returns {Promise<Object>}
+ */
+async function apiGet(url) {
+  const res = await fetch(API_BASE + url);
+  if (!res.ok) {
+    const body = await res.text();
+    let message;
+    try {
+      const json = JSON.parse(body);
+      message = json.detail || json.message || body;
+    } catch {
+      message = body;
+    }
+    throw new Error(`요청 실패 (${res.status}): ${message}`);
+  }
+  return res.json();
+}
+
+/**
+ * POST 요청
+ * @param {string} url - API endpoint
+ * @param {Object} [body] - JSON 요청 본문
+ * @returns {Promise<Object>}
+ */
+async function apiPost(url, body) {
+  const options = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body !== undefined) {
+    options.body = JSON.stringify(body);
+  }
+  const res = await fetch(API_BASE + url, options);
+  if (!res.ok) {
+    const text = await res.text();
+    let message;
+    try {
+      const json = JSON.parse(text);
+      message = json.detail || json.message || text;
+    } catch {
+      message = text;
+    }
+    throw new Error(`요청 실패 (${res.status}): ${message}`);
+  }
+  return res.json();
+}
+
+/**
+ * SSE (Server-Sent Events) 연결
+ * @param {string} url - SSE endpoint
+ * @param {function} onProgress - progress 이벤트 콜백 ({step, current, total, message})
+ * @param {function} onComplete - complete 이벤트 콜백 ({status})
+ * @param {function} [onError] - 에러 콜백
+ * @returns {EventSource}
+ */
+function connectSSE(url, onProgress, onComplete, onError) {
+  const es = new EventSource(API_BASE + url);
+
+  es.addEventListener('progress', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      onProgress(data);
+    } catch (e) {
+      console.error('SSE progress 파싱 오류:', e);
+    }
+  });
+
+  es.addEventListener('complete', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      onComplete(data);
+    } catch (e) {
+      console.error('SSE complete 파싱 오류:', e);
+    }
+    es.close();
+  });
+
+  es.addEventListener('error_event', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (onError) onError(new Error(data.error || '서버 오류가 발생했습니다.'));
+    } catch {
+      if (onError) onError(new Error('서버 오류가 발생했습니다.'));
+    }
+    es.close();
+  });
+
+  es.onerror = (event) => {
+    // EventSource auto-reconnects on network errors. If readyState is CLOSED,
+    // the server intentionally ended the stream.
+    if (es.readyState === EventSource.CLOSED) {
+      if (onError) onError(new Error('서버 연결이 종료되었습니다.'));
+    }
+  };
+
+  return es;
+}
+
+/* ---------- Toast Notifications ---------- */
+
+function showToast(message, type = 'info', duration = 3500) {
+  let container = document.querySelector('.toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+/* ---------- Status Badge Helper ---------- */
+
+function statusBadgeClass(status) {
+  switch (status) {
+    case '생성중': return 'badge--generating';
+    case '미리보기': return 'badge--preview';
+    case '업로드완료': return 'badge--uploaded';
+    default: return '';
+  }
+}
+
+function scoreBadgeClass(score) {
+  if (score >= 70) return 'score-badge--high';
+  if (score >= 40) return 'score-badge--mid';
+  return 'score-badge--low';
+}
+
+/* ---------- Date Formatting ---------- */
+
+function formatDate(isoStr) {
+  if (!isoStr) return '-';
+  const d = new Date(isoStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatWeekRange(weekRange) {
+  if (!weekRange || weekRange.length < 2) return '-';
+  return `${formatDate(weekRange[0])} ~ ${formatDate(weekRange[1])}`;
+}

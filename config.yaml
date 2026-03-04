@@ -1,0 +1,176 @@
+web:
+  host: "127.0.0.1"
+  port: 8000
+
+dooray:
+  wiki_id: "3943995727619275431"
+  parent_page_id: "3943995730769937528"
+  notices_parent_page_id: "3943995730769937528"
+
+rss:
+  max_age_days: 7
+  keywords:
+    - 라쿠텐
+    - 아마존
+    - 구글
+    - 알리바바
+    - 테무
+    - 틱톡
+    - 바이트댄스
+    - 페이스북
+    - 메타
+    - GDPR
+    - FTC
+    - 알리익스프레스
+    - 쉬인
+    - 큐텐
+    - 인터파크
+    - 지마켓
+    - 쿠팡
+    - 11번가
+    - 이커머스
+    - 가비아
+    - 아임웹
+    - 후이즈
+    - 신세계
+    - ssg닷컴
+    - 롯데
+    - CJ
+    - 카카오
+    - 네이버
+    - 종합몰
+    - 전문몰
+    - 포탈
+    - 무신사
+    - 지그재그
+    - 에이블리
+    - 메이크샵
+    - 카페24
+    - 챗GPT
+    - 오픈AI
+    - AI 에이전트
+    - 생성형AI
+    - 틱톡샵
+    - 퀵커머스
+    - 클로드AI
+  filter_words:
+    - 출시
+    - 론칭
+    - 신제품
+    - 업데이트
+    - 베타
+    - 오픈
+    - 성장
+    - 매출
+    - 시장 점유율
+    - 신규 가입자
+    - 유입
+    - 트래픽
+    - AI
+    - 챗봇
+    - 빅데이터
+    - 추천 알고리즘
+    - 결제 시스템
+    - 블록체인
+    - NFT
+    - 빠른배송
+    - 새벽배송
+    - 물류센터
+    - 풀필먼트
+    - 라스트마일
+    - 무료배송
+    - 프로모션
+    - 할인
+    - 쿠폰
+    - 구독 서비스
+    - 라이브 커머스
+    - 인플루언서 마케팅
+    - 투자 유치
+    - IPO
+    - M&A
+    - 시리즈 A
+    - 시리즈 B
+    - 벤처캐피털
+    - GDPR
+    - 개인정보 보호
+    - 광고 규제
+    - 소비자 보호법
+    - 공정위
+    - 에이전트
+    - 생성형
+    - LLM
+
+scoring:
+  max_per_keyword: 1
+  fill_with_dup_if_not_enough: true
+  max_age_days: 14
+  pick_counts:
+    main: 1
+    market: 3
+    other: 3
+  market_keywords:
+    - 11번가
+    - 쿠팡
+    - 네이버
+    - 네이버쇼핑
+    - 지마켓
+    - 옥션
+    - 인터파크
+    - SSG
+    - SSG닷컴
+    - 컬리
+    - 무신사
+    - 티몬
+    - 알리익스프레스
+    - 테무
+    - 큐텐
+    - 위메프
+  keyword_weights:
+    오픈AI: 6
+    챗GPT: 6
+    구글: 5
+    메타: 4
+    네이버: 4
+    카카오: 4
+    아마존: 4
+    알리바바: 3
+    테무: 3
+    알리익스프레스: 3
+    쿠팡: 4
+    무신사: 3
+    SSG닷컴: 3
+    신세계: 3
+    롯데: 3
+    CJ: 3
+  keyword_soft_penalty:
+    오픈AI: 2
+    챗GPT: 2
+  source_weights:
+    블룸버그: 3
+    로이터: 3
+    WSJ: 3
+    뉴욕타임즈: 3
+    파이낸셜타임즈: 3
+    연합뉴스: 2
+    이데일리: 2
+    머니투데이: 2
+    전자신문: 2
+    디지털데일리: 2
+    ZDNet: 2
+    The Verge: 2
+    TechCrunch: 2
+
+notices:
+  targets:
+    - name: "아임웹"
+      url: "https://imweb.me/notice?category=notice"
+      encoding: "utf-8"
+    - name: "카페24-쇼핑몰"
+      url: "https://shopnotice.cafe24.com/?bbs_no=0"
+      encoding: "utf-8"
+    - name: "카페24-기능"
+      url: "https://shopnotice.cafe24.com/?bbs_no=5"
+      encoding: "utf-8"
+    - name: "메이크샵"
+      url: "https://www.makeshop.co.kr/newmakeshop/home/notice_list.html"
+      encoding: "cp949"
