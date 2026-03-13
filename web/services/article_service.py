@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 
-from collector.rss import NewsArticle, collect_news, resolve_google_urls
+from collector.rss import NewsArticle, collect_news
 from processor.markdown import build_reframe_table
 from scorer.ranking import ScoredArticle, score_article, select_weekly_picks, _is_similar_title
 from scraper.article_scraper import ScrapedArticle, scrape_article
@@ -226,19 +226,8 @@ def _run_pipeline(session: GenerationSession) -> None:
             _emit_progress(session, "error", 0, 0, session.error_message)
             return
 
-        current_step = "URL 해석"
-        # Step 3: Resolve Google News URLs
-        _emit_progress(session, "scraping", 0, len(all_picks), "URL을 해석하고 있습니다...")
-        temp_articles = [
-            NewsArticle(keyword=p.keyword, title=p.title, source=p.source, link=p.link, date=p.date)
-            for p in all_picks
-        ]
-        resolve_google_urls(temp_articles)
-        for pick, resolved in zip(all_picks, temp_articles):
-            pick.link = resolved.link
-
         current_step = "본문 스크래핑"
-        # Step 4: Scrape articles in parallel
+        # Step 3: Scrape articles in parallel (URL resolution is now inline in _fetch_page)
         session.status = "scraping"
         images_dir = _images_dir()
         total = len(all_picks)
@@ -597,14 +586,7 @@ def _pick_from_pool(
         if batch_dup:
             continue
 
-        # Resolve URL only for this single candidate
-        temp = [NewsArticle(
-            keyword=candidate.keyword, title=candidate.title,
-            source=candidate.source, link=candidate.link, date=candidate.date,
-        )]
-        resolve_google_urls(temp)
-        candidate.link = temp[0].link
-
+        # URL resolution is now inline in scraper's _fetch_page
         return candidate
 
     return None

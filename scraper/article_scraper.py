@@ -393,8 +393,33 @@ def _detect_encoding(resp: requests.Response) -> str:
     return "utf-8"
 
 
+def _resolve_google_news_url(url: str) -> str:
+    """Resolve a single Google News URL to the real article URL.
+
+    Tries googlenewsdecoder first; on failure returns the original URL
+    so the caller can attempt a direct fetch.
+    """
+    try:
+        from googlenewsdecoder import gnewsdecoder
+        result = gnewsdecoder(url, interval=0.2)
+        if result.get("status"):
+            logger.info("Google URL 해석 성공: %s", result["decoded_url"][:80])
+            return result["decoded_url"]
+        logger.warning("Google URL 해석 실패: %s", result.get("message", "unknown"))
+    except Exception as e:
+        logger.warning("Google URL 해석 오류: %s", e)
+    return url
+
+
 def _fetch_page(url: str) -> tuple[str, str]:
-    """Fetch a page with retries. Returns (html_text, final_url)."""
+    """Fetch a page with retries. Returns (html_text, final_url).
+
+    Automatically resolves Google News URLs before fetching.
+    """
+    # Resolve Google News URL inline (no separate step needed)
+    if "news.google.com" in url:
+        url = _resolve_google_news_url(url)
+
     last_error = None
     for attempt in range(MAX_RETRIES + 1):
         try:
@@ -411,13 +436,13 @@ def _fetch_page(url: str) -> tuple[str, str]:
             return resp.text, resp.url
         except ScrapeError:
             raise  # Don't retry client errors
-        except requests.Timeout as e:
-            last_error = ScrapeError("timeout", f"응답 시간 초과")
+        except requests.Timeout:
+            last_error = ScrapeError("timeout", "응답 시간 초과")
             if attempt < MAX_RETRIES:
                 logger.debug("페이지 요청 재시도 (%d/%d): %s", attempt + 1, MAX_RETRIES, url[:80])
                 time.sleep(RETRY_DELAY)
-        except requests.ConnectionError as e:
-            last_error = ScrapeError("network", f"네트워크 오류")
+        except requests.ConnectionError:
+            last_error = ScrapeError("network", "네트워크 오류")
             if attempt < MAX_RETRIES:
                 logger.debug("페이지 요청 재시도 (%d/%d): %s", attempt + 1, MAX_RETRIES, url[:80])
                 time.sleep(RETRY_DELAY)
@@ -440,12 +465,7 @@ def scrape_article(
     """
     logger.info("Scraping article: %s", url)
 
-    if "news.google.com/rss/articles/" in url:
-        logger.warning(
-            "Google News RSS URL detected: %s — 실제 기사 URL을 사용하세요.", url,
-        )
-
-    # Fetch page with retries
+    # Fetch page with retries (Google News URLs resolved inline)
     try:
         html, final_url = _fetch_page(url)
         if final_url != url:

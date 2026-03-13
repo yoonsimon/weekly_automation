@@ -10,6 +10,7 @@ used by Google News since 2024.
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -57,60 +58,57 @@ def _format_date_kst(date_str: str) -> str:
         return ""
 
 
-def resolve_google_urls(articles: list[NewsArticle]) -> None:
-    """Resolve Google News redirect URLs to actual article URLs in-place.
-
-    Uses googlenewsdecoder for the opaque article IDs in newer Google News URLs.
-    Only processes articles whose links contain 'news.google.com'.
-    Optimistic strategy: fast by default, backoff only on 429.
-    """
+def _resolve_one(article_link: str, title_hint: str) -> tuple[str, str | None]:
+    """Resolve a single Google News URL. Returns (decoded_url, error_or_None)."""
     from googlenewsdecoder import gnewsdecoder
 
-    targets = [a for a in articles if "news.google.com" in a.link]
+    for attempt in range(2):
+        try:
+            result = gnewsdecoder(article_link, interval=0.2)
+            if result.get("status"):
+                return result["decoded_url"], None
+            msg = result.get("message", "unknown")
+            if "429" in str(msg):
+                time.sleep(2.0 * (attempt + 1))
+            else:
+                time.sleep(0.3)
+        except Exception as e:
+            if "429" in str(e):
+                time.sleep(2.0 * (attempt + 1))
+            else:
+                time.sleep(0.3)
+    return article_link, f"해석 실패: {title_hint[:30]}"
+
+
+def resolve_google_urls(articles: list[NewsArticle], workers: int = 3) -> None:
+    """Resolve Google News redirect URLs to actual article URLs in-place.
+
+    Uses googlenewsdecoder in parallel (ThreadPoolExecutor) for speed.
+    """
+    targets = [(a, a.link) for a in articles if "news.google.com" in a.link]
     if not targets:
         return
 
-    logger.info("Google URL 해석 시작: %d건", len(targets))
-    consecutive_fails = 0
+    logger.info("Google URL 해석 시작: %d건 (병렬 %d)", len(targets), workers)
+    failed = 0
 
-    for article in targets:
-        # 연속 실패 시 점진적 대기 (429 누적 방지)
-        if consecutive_fails >= 3:
-            cooldown = min(consecutive_fails * 2.0, 15.0)
-            logger.info("연속 실패 %d회, %.1fs 쿨다운...", consecutive_fails, cooldown)
-            time.sleep(cooldown)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(_resolve_one, link, a.title): a
+            for a, link in targets
+        }
+        for future in as_completed(futures):
+            article = futures[future]
+            decoded_url, err = future.result()
+            if err:
+                failed += 1
+                logger.warning(err)
+            else:
+                article.link = decoded_url
+                logger.info("URL 해석 성공: %s", article.title[:30])
 
-        resolved = False
-        for attempt in range(3):
-            try:
-                result = gnewsdecoder(article.link, interval=0.3)
-                if result.get("status"):
-                    article.link = result["decoded_url"]
-                    logger.info("URL 해석 성공: %s -> %s", article.title[:30], article.link[:80])
-                    resolved = True
-                    consecutive_fails = 0
-                    break
-                else:
-                    msg = result.get("message", "unknown")
-                    logger.warning("URL 해석 실패 (시도 %d/3): %s (%s)", attempt + 1, article.title[:30], msg)
-                    if "429" in str(msg):
-                        backoff = 3.0 * (2 ** attempt)
-                        logger.warning("Rate limit 감지, %.1fs 대기...", backoff)
-                        time.sleep(backoff)
-                    else:
-                        time.sleep(0.5)
-            except Exception as e:
-                logger.warning("URL 해석 오류 (시도 %d/3): %s - %s", attempt + 1, article.title[:30], e)
-                if "429" in str(e):
-                    backoff = 3.0 * (2 ** attempt)
-                    logger.warning("Rate limit 감지, %.1fs 대기...", backoff)
-                    time.sleep(backoff)
-                else:
-                    time.sleep(0.5)
-
-        if not resolved:
-            consecutive_fails += 1
-            logger.warning("URL 해석 최종 실패 (3회 시도): %s", article.title[:30])
+    if failed:
+        logger.warning("URL 해석 실패: %d/%d건", failed, len(targets))
 
 
 def collect_news(config: dict) -> list[NewsArticle]:
