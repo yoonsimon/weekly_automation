@@ -234,3 +234,13 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
+
+/** 모달 닫기 (애니메이션 포함) */
+function closeModal(overlayEl) {
+  if (!overlayEl || overlayEl.classList.contains('hidden')) return;
+  overlayEl.classList.add('closing');
+  setTimeout(function () {
+    overlayEl.classList.add('hidden');
+    overlayEl.classList.remove('closing');
+  }, 200);
+}

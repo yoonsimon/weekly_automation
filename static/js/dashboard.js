@@ -97,14 +97,20 @@
       return item.week_range[0] === curMonday;
     });
 
+    var articleCard = document.getElementById('card-article');
+    var noticeCard = document.getElementById('card-notice');
+
     if (thisWeekArticle) {
       setStatusBadge(articleStatusEl, thisWeekArticle.status);
+      if (articleCard) articleCard.setAttribute('data-status', thisWeekArticle.status);
     } else {
       setStatusBadge(articleStatusEl, '미완료');
+      if (articleCard) articleCard.setAttribute('data-status', '미완료');
     }
 
     // Notice status — no history tracking, always show pending
     setStatusBadge(noticeStatusEl, '미완료');
+    if (noticeCard) noticeCard.setAttribute('data-status', '미완료');
   }
 
   function setStatusBadge(el, status) {
@@ -235,16 +241,16 @@
   });
 
   modalClose.addEventListener('click', function () {
-    modal.classList.add('hidden');
+    closeModal(modal);
   });
 
   modal.addEventListener('click', function (e) {
-    if (e.target === modal) modal.classList.add('hidden');
+    if (e.target === modal) closeModal(modal);
   });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-      modal.classList.add('hidden');
+      closeModal(modal);
     }
   });
 

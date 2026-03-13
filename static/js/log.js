@@ -220,13 +220,13 @@
     }
   });
 
-  modalClose.addEventListener('click', function () { modal.classList.add('hidden'); });
+  modalClose.addEventListener('click', function () { closeModal(modal); });
   modal.addEventListener('click', function (e) {
-    if (e.target === modal) modal.classList.add('hidden');
+    if (e.target === modal) closeModal(modal);
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-      modal.classList.add('hidden');
+      closeModal(modal);
     }
   });
 

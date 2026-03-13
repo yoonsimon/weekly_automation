@@ -57,43 +57,61 @@ def _format_date_kst(date_str: str) -> str:
         return ""
 
 
-def resolve_google_urls(articles: list[NewsArticle]) -> None:
+def resolve_google_urls(articles: list[NewsArticle], batch_size: int = 5, batch_delay: float = 3.0) -> None:
     """Resolve Google News redirect URLs to actual article URLs in-place.
 
     Uses googlenewsdecoder for the opaque article IDs in newer Google News URLs.
     Only processes articles whose links contain 'news.google.com'.
-    Retries once on failure (total 2 attempts per URL).
+    Processes in batches with delay to avoid 429 rate limiting.
+    Retries with exponential backoff on failure.
     """
     from googlenewsdecoder import gnewsdecoder
 
-    for article in articles:
-        if "news.google.com" not in article.link:
-            continue
+    targets = [a for a in articles if "news.google.com" in a.link]
+    if not targets:
+        return
 
-        resolved = False
-        for attempt in range(2):
-            try:
-                result = gnewsdecoder(article.link, interval=0.5)
-                if result.get("status"):
-                    article.link = result["decoded_url"]
-                    logger.info("URL 해석 성공: %s -> %s", article.title[:30], article.link[:80])
-                    resolved = True
-                    break
-                else:
-                    logger.warning(
-                        "URL 해석 실패 (시도 %d/2): %s (%s)",
-                        attempt + 1,
-                        article.title[:30],
-                        result.get("message", "unknown"),
-                    )
-            except Exception:
-                logger.warning("URL 해석 오류 (시도 %d/2): %s", attempt + 1, article.title[:30])
+    logger.info("Google URL 해석 시작: %d건 (배치 %d건, 간격 %.1fs)", len(targets), batch_size, batch_delay)
 
-            if attempt == 0:
-                time.sleep(0.5)
+    for batch_idx in range(0, len(targets), batch_size):
+        batch = targets[batch_idx:batch_idx + batch_size]
 
-        if not resolved:
-            logger.warning("URL 해석 최종 실패 (2회 시도): %s", article.title[:30])
+        # 첫 배치가 아니면 배치 간 대기
+        if batch_idx > 0:
+            logger.info("배치 대기 중 (%.1fs)...", batch_delay)
+            time.sleep(batch_delay)
+
+        for article in batch:
+            resolved = False
+            for attempt in range(3):
+                try:
+                    result = gnewsdecoder(article.link, interval=1.0)
+                    if result.get("status"):
+                        article.link = result["decoded_url"]
+                        logger.info("URL 해석 성공: %s -> %s", article.title[:30], article.link[:80])
+                        resolved = True
+                        break
+                    else:
+                        msg = result.get("message", "unknown")
+                        logger.warning("URL 해석 실패 (시도 %d/3): %s (%s)", attempt + 1, article.title[:30], msg)
+                        # 429 감지 시 더 긴 대기
+                        if "429" in str(msg):
+                            backoff = 5.0 * (2 ** attempt)
+                            logger.warning("Rate limit 감지, %.1fs 대기...", backoff)
+                            time.sleep(backoff)
+                        else:
+                            time.sleep(1.0 * (attempt + 1))
+                except Exception as e:
+                    logger.warning("URL 해석 오류 (시도 %d/3): %s - %s", attempt + 1, article.title[:30], e)
+                    if "429" in str(e):
+                        backoff = 5.0 * (2 ** attempt)
+                        logger.warning("Rate limit 감지, %.1fs 대기...", backoff)
+                        time.sleep(backoff)
+                    else:
+                        time.sleep(1.0 * (attempt + 1))
+
+            if not resolved:
+                logger.warning("URL 해석 최종 실패 (3회 시도): %s", article.title[:30])
 
 
 def collect_news(config: dict) -> list[NewsArticle]:

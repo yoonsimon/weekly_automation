@@ -1004,7 +1004,7 @@
     // Escape -> close modals
     if (e.key === 'Escape') {
       if (!wikiUrlModal.classList.contains('hidden')) {
-        wikiUrlModal.classList.add('hidden');
+        closeModal(wikiUrlModal);
         return;
       }
       if (!replaceModal.classList.contains('hidden')) {

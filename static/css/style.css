@@ -312,13 +312,26 @@ main.container {
 .lnb__item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-s);
+  gap: 10px;
   padding: 10px 20px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weights-commerce-sans-1);
   color: var(--color-lnb-text);
   text-decoration: none;
   transition: color var(--transition), background var(--transition);
+}
+
+.lnb__icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity var(--transition);
+}
+
+.lnb__item:hover .lnb__icon,
+.lnb__item--active .lnb__icon {
+  opacity: 1;
 }
 
 .lnb__item:hover {
@@ -390,8 +403,12 @@ main.container {
     display: none;
   }
   .lnb__item {
-    padding: 10px 16px;
+    padding: 12px 0;
     justify-content: center;
+  }
+  .lnb__icon {
+    width: 20px;
+    height: 20px;
   }
   main.container {
     padding: var(--spacing-m) var(--spacing-m) var(--spacing-xl);
@@ -689,9 +706,9 @@ main.container {
 }
 
 .btn--lg {
-  height: 40px;
-  padding: 10px 16px;
-  font-size: var(--font-size-sm);
+  height: 48px;
+  padding: 12px 24px;
+  font-size: var(--font-size-md);
   font-weight: var(--font-weights-commerce-sans-2);
   border-radius: var(--radius-md);
   gap: 8px;
@@ -1365,6 +1382,16 @@ main.container {
   justify-content: center;
   z-index: 200;
   animation: fadeIn 0.2s ease;
+  transition: opacity 0.2s ease;
+}
+
+.overlay.closing {
+  opacity: 0;
+}
+
+.overlay.closing .modal {
+  transform: translateY(12px);
+  opacity: 0;
 }
 
 .overlay.hidden {
@@ -1382,6 +1409,7 @@ main.container {
   display: flex;
   flex-direction: column;
   animation: slideUp 0.25s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .modal__header {
@@ -1957,16 +1985,57 @@ main.container {
 .quick-status__card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 20px;
+  border-radius: var(--radius-lg);
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  transition: box-shadow var(--transition);
+  gap: 14px;
+  transition: box-shadow var(--transition), transform var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-status__card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gray-200);
+  transition: background var(--transition);
 }
 
 .quick-status__card:hover {
   box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.quick-status__card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quick-status__card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.quick-status__card-icon--article {
+  background: var(--primary-red-50);
+  color: var(--primary-red-500);
+}
+
+.quick-status__card-icon--notice {
+  background: var(--blue-50);
+  color: var(--blue-500);
 }
 
 .quick-status__title {
@@ -1981,18 +2050,24 @@ main.container {
   gap: 6px;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weights-commerce-sans-1);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  transition: background var(--transition), color var(--transition);
 }
 
 .quick-status__badge--pending {
-  color: var(--color-text-muted);
+  color: var(--gray-400);
+  background: var(--gray-50);
 }
 
 .quick-status__badge--preview {
   color: var(--color-status-preview-text);
+  background: var(--color-status-preview-bg);
 }
 
 .quick-status__badge--uploaded {
   color: var(--color-status-uploaded-text);
+  background: var(--color-status-uploaded-bg);
 }
 
 .quick-status__dot {
@@ -2003,7 +2078,7 @@ main.container {
 }
 
 .quick-status__badge--pending .quick-status__dot {
-  background: var(--color-text-muted);
+  background: var(--gray-300);
 }
 
 .quick-status__badge--preview .quick-status__dot {
@@ -2012,6 +2087,14 @@ main.container {
 
 .quick-status__badge--uploaded .quick-status__dot {
   background: var(--color-status-uploaded-text);
+}
+
+/* Card top accent by status */
+.quick-status__card[data-status="미리보기"]::before {
+  background: var(--blue-400);
+}
+.quick-status__card[data-status="업로드완료"]::before {
+  background: var(--green-400);
 }
 
 .quick-status__link {
@@ -2037,6 +2120,22 @@ main.container {
 .page-intro {
   text-align: center;
   padding: 48px var(--spacing-l) var(--spacing-xxl);
+  background: linear-gradient(135deg, var(--gray-50) 0%, var(--base-white) 50%, var(--primary-red-50) 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.page-intro::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  right: -20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(247, 68, 78, 0.04) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .page-intro__title {
@@ -2151,167 +2250,71 @@ main.container {
 }
 
 /* ==========================================================================
-   TOAST UI Grid – NCDS Theme Override (DES-SPEC-046)
+   Progress Checklist Card (Notices collection)
    ========================================================================== */
-.tui-grid-container {
-  font-family: var(--font-family-base) !important;
-  border: none !important;
-  border-radius: var(--radius-md) !important;
-  overflow: hidden;
+.progress-checklist {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0;
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 8px 0;
+  min-width: 280px;
+  box-shadow: var(--shadow-xs);
 }
 
-.tui-grid-header-area {
-  background: var(--gray-100) !important;
+.progress-checklist__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  transition: background var(--transition), color var(--transition);
 }
 
-.tui-grid-cell-header .tui-grid-cell-content {
-  color: var(--gray-500) !important;
-  font-size: var(--font-size-xs) !important;
-  font-weight: var(--font-weights-commerce-sans-1) !important;
+.progress-checklist__item--active {
+  color: var(--color-text);
+  background: var(--primary-red-50);
 }
 
-.tui-grid-cell .tui-grid-cell-content {
-  color: var(--gray-700) !important;
-  font-size: var(--font-size-xs) !important;
-  font-weight: var(--font-weights-commerce-sans-0) !important;
+.progress-checklist__item--done {
+  color: var(--green-600);
 }
 
-.tui-grid-cell {
-  border-bottom: 1px solid var(--gray-100) !important;
-  border-right: none !important;
-  height: 48px !important;
-}
-
-.tui-grid-cell-header {
-  border-bottom: 1px solid var(--gray-100) !important;
-  border-right: 1px solid var(--gray-100) !important;
-}
-
-.tui-grid-row-hover .tui-grid-cell {
-  background: var(--gray-50) !important;
-}
-
-.tui-grid-border-line-top,
-.tui-grid-border-line-bottom,
-.tui-grid-border-line-left,
-.tui-grid-border-line-right {
-  background: transparent !important;
-}
-
-.tui-grid-row-odd .tui-grid-cell {
-  background: var(--base-white) !important;
-}
-
-.tui-grid-body-area {
-  border-top: none !important;
-}
-
-.tui-grid-scrollbar-y-inner-border,
-.tui-grid-scrollbar-x-inner-border {
-  background: var(--gray-100) !important;
-}
-
-/* TOAST UI Grid Pagination */
-.tui-grid-pagination-container {
+.progress-checklist__icon {
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-xs);
-  margin-top: var(--spacing-l);
-  padding: 12px 0;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 11px;
 }
 
-.tui-pagination .tui-page-btn {
-  font-family: var(--font-family-base);
-  font-size: var(--font-size-sm);
-  color: var(--gray-600) !important;
-  border: none !important;
-  background: none !important;
-  min-width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
+.progress-checklist__item--pending .progress-checklist__icon {
+  border: 2px solid var(--gray-200);
 }
 
-.tui-pagination .tui-page-btn:hover {
-  background: var(--gray-50) !important;
+.progress-checklist__item--active .progress-checklist__icon {
+  border: none;
+  background: transparent;
 }
 
-.tui-pagination .tui-page-btn.tui-is-selected {
-  color: var(--color-primary) !important;
-  font-weight: var(--font-weights-commerce-sans-2) !important;
-  border-bottom: 2px solid var(--color-primary) !important;
-  border-radius: 0 !important;
-  background: none !important;
+.progress-checklist__item--done .progress-checklist__icon {
+  background: var(--green-100);
+  color: var(--green-600);
+  border: none;
+  animation: checkPop 0.3s ease;
 }
 
-.tui-pagination .tui-page-btn.tui-is-disabled {
-  color: var(--gray-200) !important;
-}
-
-.tui-pagination .tui-page-btn .tui-ico-first,
-.tui-pagination .tui-page-btn .tui-ico-last,
-.tui-pagination .tui-page-btn .tui-ico-prev,
-.tui-pagination .tui-page-btn .tui-ico-next {
-  background-color: var(--gray-600);
-}
-
-.tui-pagination .tui-page-btn.tui-is-disabled .tui-ico-first,
-.tui-pagination .tui-page-btn.tui-is-disabled .tui-ico-last,
-.tui-pagination .tui-page-btn.tui-is-disabled .tui-ico-prev,
-.tui-pagination .tui-page-btn.tui-is-disabled .tui-ico-next {
-  background-color: var(--gray-200);
-}
-
-/* ==========================================================================
-   Flatpickr – NCDS Theme Override (Primary Red)
-   ========================================================================== */
-.flatpickr-calendar {
-  border: 1px solid var(--gray-100) !important;
-  border-radius: var(--radius-lg) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
-  font-family: var(--font-family-base) !important;
-}
-
-.flatpickr-day.selected,
-.flatpickr-day.startRange,
-.flatpickr-day.endRange {
-  background: var(--primary-red-450) !important;
-  border-color: var(--primary-red-450) !important;
-}
-
-.flatpickr-day.selected:hover,
-.flatpickr-day.startRange:hover,
-.flatpickr-day.endRange:hover {
-  background: var(--primary-red-600) !important;
-  border-color: var(--primary-red-600) !important;
-}
-
-.flatpickr-day:hover {
-  background: var(--gray-50) !important;
-  border-color: var(--gray-50) !important;
-}
-
-.flatpickr-day.today {
-  border-color: var(--primary-red-450) !important;
-}
-
-.flatpickr-day.today:hover {
-  background: var(--primary-red-450) !important;
-  color: var(--base-white) !important;
-}
-
-.flatpickr-day.inRange {
-  background: var(--primary-red-50) !important;
-  border-color: var(--primary-red-50) !important;
-  box-shadow: -5px 0 0 var(--primary-red-50), 5px 0 0 var(--primary-red-50) !important;
-}
-
-.flatpickr-months .flatpickr-month {
-  color: var(--gray-700) !important;
-}
-
-.flatpickr-current-month .flatpickr-monthDropdown-months {
-  font-weight: 600 !important;
+@keyframes checkPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* ==========================================================================
@@ -2417,23 +2420,17 @@ main.container {
   cursor: not-allowed;
 }
 
-/* ==========================================================================
-   Flowbite Conflict Overrides
-   ========================================================================== */
-button.btn {
-  line-height: normal;
-}
-
 /* Confirmed state */
 .action-bar--confirmed {
-  border-top: 3px solid var(--color-success, #38a169);
-  background: var(--color-success-light, #f0fff4);
+  border-top: 3px solid var(--green-500);
+  background: var(--green-50);
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .btn--confirmed {
-  background: var(--color-success, #38a169) !important;
-  border-color: var(--color-success, #38a169) !important;
-  color: #fff !important;
+  background: var(--green-500) !important;
+  border-color: var(--green-600) !important;
+  color: var(--base-white) !important;
   cursor: default;
 }
 
@@ -2442,8 +2439,8 @@ button.btn {
 }
 
 @keyframes pulse-highlight {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
-  50% { box-shadow: 0 0 0 6px rgba(72, 187, 120, 0.3); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(9, 146, 80, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(9, 146, 80, 0.25); }
 }
 
 /* ==========================================================================

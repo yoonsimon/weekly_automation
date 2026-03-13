@@ -164,8 +164,8 @@
 
   function renderProgressChecklist(names) {
     progressChecklist.innerHTML = names.map(function (name) {
-      return '<div id="progress-' + escapeHtml(name) + '" style="display:flex; align-items:center; gap:10px; font-size:14px;">' +
-        '<span class="progress-icon" style="width:18px; text-align:center; color:var(--color-text-muted);">&#9711;</span>' +
+      return '<div id="progress-' + escapeHtml(name) + '" class="progress-checklist__item progress-checklist__item--pending">' +
+        '<span class="progress-checklist__icon">&#9711;</span>' +
         '<span>' + escapeHtml(name) + '</span>' +
         '</div>';
     }).join('');
@@ -174,16 +174,18 @@
   function updateProgressItem(name, status) {
     var el = document.getElementById('progress-' + name);
     if (!el) return;
-    var icon = el.querySelector('.progress-icon');
+    var icon = el.querySelector('.progress-checklist__icon');
+    el.classList.remove('progress-checklist__item--pending', 'progress-checklist__item--active', 'progress-checklist__item--done');
     if (status === 'collecting') {
+      el.classList.add('progress-checklist__item--active');
       icon.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;"></span>';
-      icon.style.color = '';
     } else if (status === 'done') {
+      el.classList.add('progress-checklist__item--done');
       icon.innerHTML = '&#10003;';
-      icon.style.color = 'var(--color-success, #38a169)';
     } else if (status === 'error') {
+      el.classList.add('progress-checklist__item--pending');
       icon.innerHTML = '&#10007;';
-      icon.style.color = 'var(--color-danger, #e53e3e)';
+      icon.style.color = 'var(--color-danger)';
     }
   }
 
