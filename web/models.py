@@ -80,11 +80,17 @@ class ArticleCard(BaseModel):
     image_local: str
     replacement_count: int = 0
     max_replacements: int = 3
+    scrape_status: str = "ok"  # "ok" | "partial" | "failed"
+    scrape_error: str = ""  # human-readable error reason (Korean)
 
 
 class GenerationArticlesResponse(BaseModel):
     session_id: str
     articles: dict[str, list[ArticleCard]]  # main/market/other
+
+
+class UpdateArticleBodyRequest(BaseModel):
+    body_full: str
 
 
 class ReplaceRequest(BaseModel):
@@ -126,5 +132,42 @@ class ConfirmResponse(BaseModel):
 
 class UploadResponse(BaseModel):
     history_id: str
+    status: str
+    dooray_page_id: str
+
+
+# ---------------------------------------------------------------------------
+# Notices
+# ---------------------------------------------------------------------------
+
+class NoticeItem(BaseModel):
+    title: str
+    url: str
+    date: str | None
+
+
+class NoticePlatform(BaseModel):
+    name: str
+    count: int
+    notices: list[NoticeItem]
+    status: str = "ok"  # "ok" | "error"
+    error: str | None = None
+
+
+class NoticesCollectResponse(BaseModel):
+    week_range: list[str]
+    platforms: list[NoticePlatform]
+    total_count: int
+    markdown_raw: str
+    markdown_html: str
+
+
+class NoticesUploadRequest(BaseModel):
+    parent_page_id: str | None = None
+    wiki_id: str | None = None
+    markdown_raw: str
+
+
+class NoticesUploadResponse(BaseModel):
     status: str
     dooray_page_id: str

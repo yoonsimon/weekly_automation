@@ -1,52 +1,217 @@
 /* ==========================================================================
    주간 뉴스 자동 큐레이션 대시보드 – Global Styles
+   Design System: NCDS Admin (Primary Red)
+   Spec Reference: DES-SPEC-001 ~ DES-SPEC-054
    ========================================================================== */
 
-/* ---------- CSS Variables ---------- */
+/* ==========================================================================
+   1. NCDS Raw Palette Tokens
+   ========================================================================== */
 :root {
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-light: #eff6ff;
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-border-light: #f1f5f9;
-  --color-text: #1e293b;
-  --color-text-secondary: #64748b;
-  --color-text-muted: #94a3b8;
+  /* ---------- Primary Red ---------- */
+  --primary-red-50: #FFFAFD;
+  --primary-red-100: #FFEAEE;
+  --primary-red-200: #FECBD2;
+  --primary-red-300: #FF9FA5;
+  --primary-red-400: #F86F76;
+  --primary-red-450: #F7444E;   /* CTA 전용 예약 */
+  --primary-red-500: #EC1D31;
+  --primary-red-600: #DC0A2B;
+  --primary-red-700: #A60013;
 
-  /* status badges */
-  --color-status-generating-bg: #fef3c7;
-  --color-status-generating-text: #92400e;
-  --color-status-preview-bg: #dbeafe;
-  --color-status-preview-text: #1e40af;
-  --color-status-uploaded-bg: #d1fae5;
-  --color-status-uploaded-text: #065f46;
+  /* ---------- Gray ---------- */
+  --gray-50: #F6F7F9;
+  --gray-100: #EAECF0;
+  --gray-200: #D3D4D8;
+  --gray-300: #A4A5A8;
+  --gray-400: #757678;
+  --gray-450: #5E5E60;
+  --gray-500: #464748;
+  --gray-600: #2F2F30;
+  --gray-700: #171818;
 
-  /* score badges */
-  --color-score-high-bg: #dcfce7;
-  --color-score-high-text: #166534;
-  --color-score-mid-bg: #fef9c3;
-  --color-score-mid-text: #854d0e;
-  --color-score-low-bg: #fee2e2;
-  --color-score-low-text: #991b1b;
+  /* ---------- Base ---------- */
+  --base-white: #FFFFFF;
+  --base-black: #000000;
 
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
-  --color-success: #22c55e;
+  /* ---------- Green ---------- */
+  --green-50: #F6FEF9;
+  --green-100: #D1FADF;
+  --green-200: #A6F4C5;
+  --green-300: #6CE9A6;
+  --green-400: #32D583;
+  --green-500: #099250;
+  --green-600: #079455;
+  --green-700: #067647;
 
+  /* ---------- Blue ---------- */
+  --blue-50: #EFF8FF;
+  --blue-100: #D1E9FF;
+  --blue-200: #B2DDFF;
+  --blue-300: #84CAFF;
+  --blue-400: #53B1FD;
+  --blue-500: #1570EF;
+  --blue-600: #1849A9;
+  --blue-700: #194185;
+
+  /* ---------- Orange ---------- */
+  --orange-50: #FFF6ED;
+  --orange-100: #FFEAD5;
+  --orange-200: #FDDCAB;
+  --orange-300: #FEB273;
+  --orange-400: #FD853A;
+  --orange-500: #EF6820;
+  --orange-600: #E04F16;
+  --orange-700: #B93815;
+
+  /* ---------- Pink ---------- */
+  --pink-50: #FDF2FA;
+  --pink-100: #FCE7F6;
+  --pink-200: #FCCEEE;
+  --pink-300: #FAA7E0;
+  --pink-400: #F670C7;
+  --pink-500: #EE46BC;
+  --pink-600: #DD2590;
+  --pink-700: #C11574;
+
+  /* ---------- Violet ---------- */
+  --violet-50: #F5F3FF;
+  --violet-100: #ECE9FE;
+  --violet-200: #DDD6FE;
+  --violet-300: #C4B5FD;
+  --violet-400: #A78BFA;
+  --violet-500: #7C3AED;
+  --violet-600: #6927DA;
+  --violet-700: #5720B7;
+
+  /* ==========================================================================
+     2. Semantic Aliases (blast radius 최소화)
+     ========================================================================== */
+  --color-primary: var(--primary-red-450);
+  --color-primary-hover: var(--primary-red-600);
+  --color-primary-light: var(--primary-red-50);
+
+  --color-bg: var(--gray-50);
+  --color-surface: var(--base-white);
+
+  /* LNB (사이드바 다크 테마 – NCDS Gray 적용) */
+  --color-lnb-bg: var(--gray-600);
+  --color-lnb-text: rgba(255, 255, 255, 0.5);
+  --color-lnb-text-active: #FFFFFF;
+  --color-lnb-text-hover: rgba(255, 255, 255, 0.8);
+  --color-lnb-active-bg: rgba(255, 255, 255, 0.1);
+
+  --color-border: var(--gray-100);
+  --color-border-light: var(--gray-50);
+
+  --color-text: var(--gray-700);
+  --color-text-secondary: var(--gray-400);
+  --color-text-muted: var(--gray-300);
+
+  /* Status Badges → NCDS 매핑 */
+  --color-status-generating-bg: var(--orange-100);
+  --color-status-generating-text: var(--orange-700);
+  --color-status-preview-bg: var(--blue-100);
+  --color-status-preview-text: var(--blue-600);
+  --color-status-uploaded-bg: var(--green-100);
+  --color-status-uploaded-text: var(--green-500);
+
+  /* Score Badges → NCDS 매핑 */
+  --color-score-high-bg: var(--green-50);
+  --color-score-high-text: var(--green-700);
+  --color-score-mid-bg: var(--orange-50);
+  --color-score-mid-text: var(--orange-700);
+  --color-score-low-bg: var(--primary-red-50);
+  --color-score-low-text: var(--primary-red-600);
+
+  /* Semantic */
+  --color-danger: var(--primary-red-600);
+  --color-danger-hover: var(--primary-red-700);
+  --color-success: var(--green-500);
+
+  /* Backward compat: indigo aliases → primary-red */
+  --color-indigo-50: var(--primary-red-50);
+  --color-indigo-100: var(--primary-red-100);
+
+  /* ==========================================================================
+     3. Radius Tokens
+     ========================================================================== */
+  --radius-xs: 4px;
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* ==========================================================================
+     4. Shadow Tokens (DES-SPEC-006 §5.2)
+     ========================================================================== */
+  --shadow-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-  --transition: 0.2s ease;
 
-  --font-stack: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Focus Ring Effects */
+  --shadow-focused-primary: 0px 0px 0px 4px rgba(255, 234, 238, 1), 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
+  --shadow-focused-gray: 0px 0px 0px 4px rgba(242, 244, 247, 1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06);
+  --shadow-focused-error: 0px 1px 2px 0px rgba(16, 24, 40, 0.05), 0px 0px 0px 4px rgba(254, 228, 226, 1);
+
+  /* ==========================================================================
+     5. Typography Tokens (DES-SPEC-004)
+     ========================================================================== */
+  --font-family-base: 'CommerceSans', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  --font-stack: var(--font-family-base);
+
+  /* Font Sizes */
+  --font-size-display-xl: 60px;
+  --font-size-display-lg: 48px;
+  --font-size-display-md: 36px;
+  --font-size-display-sm: 30px;
+  --font-size-display-xs: 24px;
+  --font-size-xl: 20px;
+  --font-size-lg: 18px;
+  --font-size-md: 16px;
+  --font-size-sm: 14px;
+  --font-size-xs: 13px;
+  --font-size-xxs: 12px;
+  --font-size-xxxs: 11px;
+
+  /* Line Heights */
+  --line-heights-display-xl: 76px;
+  --line-heights-display-lg: 60px;
+  --line-heights-display-md: 46px;
+  --line-heights-display-sm: 38px;
+  --line-heights-display-xs: 32px;
+  --line-heights-xl: 30px;
+  --line-heights-lg: 28px;
+  --line-heights-md: 24px;
+  --line-heights-sm: 22px;
+  --line-heights-xs: 18px;
+  --line-heights-xxs: 16px;
+  --line-heights-xxxs: 14px;
+
+  /* Font Weights */
+  --font-weights-commerce-sans-0: 400;
+  --font-weights-commerce-sans-1: 500;
+  --font-weights-commerce-sans-2: 700;
+
+  /* ==========================================================================
+     6. Spacing Tokens (DES-SPEC-005)
+     ========================================================================== */
+  --spacing-xs: 4px;
+  --spacing-s: 8px;
+  --spacing-m: 16px;
+  --spacing-l: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 40px;
+
+  /* ==========================================================================
+     7. Transition
+     ========================================================================== */
+  --transition: 0.2s ease;
 }
 
-/* ---------- Reset & Base ---------- */
+/* ==========================================================================
+   Reset & Base (DES-SPEC-004 base: Text xs = 13px)
+   ========================================================================== */
 *,
 *::before,
 *::after {
@@ -56,17 +221,18 @@
 }
 
 html {
-  font-size: 15px;
+  font-size: var(--font-size-xs);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  font-family: var(--font-stack);
+  font-family: var(--font-family-base);
   color: var(--color-text);
   background: var(--color-bg);
-  line-height: 1.6;
+  line-height: var(--line-heights-xs);
   min-height: 100vh;
+  /* zoom: 1.25 제거됨 – NCDS px 기반 토큰 전환 */
 }
 
 a {
@@ -82,18 +248,106 @@ img {
   max-width: 100%;
 }
 
-/* ---------- Layout ---------- */
+/* ==========================================================================
+   Layout – NCDS Block Structure (DES-SPEC-005)
+   ========================================================================== */
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
+  width: 100%;
+  padding: 0 var(--spacing-l);
 }
 
-/* ---------- Header ---------- */
+main.container {
+  padding: var(--spacing-l) var(--spacing-xxl) 48px;
+}
+
+/* ==========================================================================
+   Shell Layout (LNB + Main)
+   ========================================================================== */
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ==========================================================================
+   LNB – NCDS Dark Theme (DES-SPEC-005: 210px)
+   ========================================================================== */
+.lnb {
+  width: 210px;
+  flex-shrink: 0;
+  background: var(--color-lnb-bg);
+  border-right: none;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.lnb__brand {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 20px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weights-commerce-sans-2);
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lnb__brand:hover {
+  color: var(--color-lnb-text-hover);
+  text-decoration: none;
+}
+
+.lnb__nav {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-s) 0;
+  gap: 2px;
+}
+
+.lnb__item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-s);
+  padding: 10px 20px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-1);
+  color: var(--color-lnb-text);
+  text-decoration: none;
+  transition: color var(--transition), background var(--transition);
+}
+
+.lnb__item:hover {
+  color: var(--color-lnb-text-hover);
+  background: var(--color-lnb-active-bg);
+  text-decoration: none;
+}
+
+.lnb__item--active {
+  color: var(--color-lnb-text-active);
+  font-weight: 600;
+  background: var(--color-lnb-active-bg);
+}
+
+/* Main content area */
+.shell__main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ==========================================================================
+   Header (page title bar) – DES-SPEC-044 PageTitle
+   ========================================================================== */
 .header {
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  padding: 18px 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -103,48 +357,69 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  max-width: none;
+  margin: 0;
+  width: 100%;
+  padding: 0 var(--spacing-xxl);
 }
 
 .header__title {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: var(--font-size-display-xs);
+  font-weight: var(--font-weights-commerce-sans-2);
   color: var(--color-text);
   letter-spacing: -0.02em;
 }
 
-.header__back {
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+/* ==========================================================================
+   Responsive: collapse LNB
+   ========================================================================== */
+@media (max-width: 768px) {
+  .lnb {
+    width: 56px;
+  }
+  .lnb__brand {
+    font-size: 0;
+    padding: 14px 16px;
+    color: #FFFFFF;
+    height: 56px;
+  }
+  .lnb__brand::first-letter {
+    font-size: var(--font-size-lg);
+  }
+  .lnb__label {
+    display: none;
+  }
+  .lnb__item {
+    padding: 10px 16px;
+    justify-content: center;
+  }
+  main.container {
+    padding: var(--spacing-m) var(--spacing-m) var(--spacing-xl);
+  }
 }
 
-.header__back:hover {
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-/* ---------- Section ---------- */
+/* ==========================================================================
+   Section – NCDS Block Structure (DES-SPEC-005)
+   ========================================================================== */
 .section {
-  margin: 32px 0;
+  margin: var(--spacing-m) 0;
 }
 
 .section__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-m);
 }
 
 .section__title {
-  font-size: 1.05rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-text);
 }
 
 .section__link {
-  font-size: 0.85rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
@@ -152,106 +427,330 @@ img {
   color: var(--color-primary);
 }
 
-/* ---------- Buttons ---------- */
+/* ==========================================================================
+   Buttons – NCDS 9 Hierarchy (DES-SPEC-006)
+   ========================================================================== */
+
+/* Base (default = Secondary gray, sm size) */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 20px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  font-family: var(--font-stack);
-  border: none;
+  gap: 8px;
+  height: 36px;
+  padding: 7px 14px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-2);
+  font-family: var(--font-family-base);
+  border: 1px solid var(--gray-200);
   border-radius: var(--radius-sm);
+  background: var(--base-white);
+  color: var(--gray-700);
   cursor: pointer;
-  transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+  box-shadow: var(--shadow-xs);
+  transition: background var(--transition), box-shadow var(--transition), border-color var(--transition), color var(--transition);
   white-space: nowrap;
 }
 
-.btn:active {
+.btn:hover:not(:disabled) {
+  background: var(--gray-50);
+}
+
+.btn:focus-visible {
+  box-shadow: var(--shadow-focused-gray);
+  outline: none;
+}
+
+.btn:active:not(:disabled) {
   transform: scale(0.97);
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  background: var(--base-white);
+  color: var(--gray-200);
+  border-color: var(--gray-200);
   cursor: not-allowed;
   transform: none;
 }
 
+/* Primary – CTA (DES-SPEC-006 §5.1) */
 .btn--primary {
-  background: var(--color-primary);
-  color: #fff;
-  box-shadow: var(--shadow-sm);
+  background: var(--primary-red-450);
+  color: var(--base-white);
+  border-color: var(--primary-red-500);
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  box-shadow: var(--shadow-md);
+  background: var(--primary-red-600);
+  border-color: var(--primary-red-700);
 }
 
+.btn--primary:focus-visible {
+  box-shadow: var(--shadow-focused-primary);
+}
+
+.btn--primary:disabled {
+  background: var(--primary-red-100);
+  color: var(--primary-red-200);
+  border-color: var(--primary-red-200);
+}
+
+/* Secondary (color) */
 .btn--secondary {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
+  background: var(--gray-500);
+  color: var(--base-white);
+  border-color: var(--gray-600);
 }
 
 .btn--secondary:hover:not(:disabled) {
-  background: var(--color-bg);
+  background: var(--gray-600);
+  border-color: var(--gray-700);
 }
 
+.btn--secondary:focus-visible {
+  box-shadow: var(--shadow-focused-gray);
+}
+
+.btn--secondary:disabled {
+  background: var(--gray-100);
+  color: var(--gray-200);
+  border-color: var(--gray-200);
+}
+
+/* Secondary gray = .btn base (outline) */
+.btn--outline {
+  background: var(--base-white);
+  color: var(--gray-700);
+  border: 1px solid var(--gray-200);
+}
+
+.btn--outline:hover:not(:disabled) {
+  background: var(--gray-50);
+}
+
+.btn--outline:focus-visible {
+  box-shadow: var(--shadow-focused-gray);
+}
+
+.btn--outline:disabled {
+  color: var(--gray-200);
+}
+
+/* Destructive */
 .btn--danger {
-  background: var(--color-danger);
-  color: #fff;
+  background: var(--base-white);
+  color: var(--primary-red-600);
+  border: 1px solid var(--primary-red-600);
 }
 
 .btn--danger:hover:not(:disabled) {
-  background: var(--color-danger-hover);
+  background: var(--primary-red-100);
+  color: var(--primary-red-700);
+  border-color: var(--primary-red-700);
 }
 
+.btn--danger:focus-visible {
+  box-shadow: var(--shadow-focused-error);
+}
+
+.btn--danger:disabled {
+  background: var(--base-white);
+  color: var(--primary-red-200);
+  border-color: var(--primary-red-200);
+}
+
+/* Success */
 .btn--success {
-  background: var(--color-success);
-  color: #fff;
+  background: var(--green-500);
+  color: var(--base-white);
+  border: 1px solid var(--green-600);
+}
+
+.btn--success:hover:not(:disabled) {
+  background: var(--green-600);
+  border-color: var(--green-700);
+}
+
+.btn--success:disabled {
+  background: var(--green-100);
+  color: var(--green-200);
+  border-color: var(--green-200);
+}
+
+/* Tertiary gray */
+.btn--tertiary-gray {
+  background: transparent;
+  color: var(--gray-700);
+  border: none;
+  box-shadow: none;
+}
+
+.btn--tertiary-gray:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.btn--tertiary-gray:disabled {
+  color: var(--gray-200);
+  background: transparent;
+}
+
+/* Tertiary (blue) */
+.btn--tertiary {
+  background: transparent;
+  color: var(--blue-500);
+  border: none;
+  box-shadow: none;
+}
+
+.btn--tertiary:hover:not(:disabled) {
+  background: var(--blue-100);
+  color: var(--blue-600);
+}
+
+.btn--tertiary:disabled {
+  color: var(--gray-200);
+  background: transparent;
+}
+
+/* Text button (blue underline) */
+.btn--text {
+  background: transparent;
+  color: var(--blue-500);
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  font-weight: var(--font-weights-commerce-sans-1);
+  text-decoration: underline;
+}
+
+.btn--text:hover:not(:disabled) {
+  color: var(--blue-600);
+  background: transparent;
+}
+
+.btn--text:disabled {
+  color: var(--gray-200);
+  background: transparent;
+}
+
+/* Text gray button */
+.btn--text-gray {
+  background: transparent;
+  color: var(--gray-500);
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  font-weight: var(--font-weights-commerce-sans-1);
+  text-decoration: underline;
+}
+
+.btn--text-gray:hover:not(:disabled) {
+  color: var(--gray-700);
+  background: transparent;
+}
+
+.btn--text-gray:disabled {
+  color: var(--gray-200);
+  background: transparent;
+}
+
+/* Text red button */
+.btn--text-red {
+  background: transparent;
+  color: var(--primary-red-600);
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  font-weight: var(--font-weights-commerce-sans-1);
+  text-decoration: underline;
+}
+
+.btn--text-red:hover:not(:disabled) {
+  color: var(--primary-red-700);
+  background: transparent;
+}
+
+.btn--text-red:disabled {
+  color: var(--gray-200);
+  background: transparent;
+}
+
+/* Button Sizes (DES-SPEC-006 §4.1) */
+.btn--md {
+  height: 40px;
+  padding: 10px 16px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-2);
+  border-radius: var(--radius-md);
+  gap: 8px;
 }
 
 .btn--lg {
-  padding: 14px 32px;
-  font-size: 1rem;
+  height: 40px;
+  padding: 10px 16px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-2);
   border-radius: var(--radius-md);
+  gap: 8px;
 }
 
 .btn--sm {
-  padding: 6px 14px;
-  font-size: 0.82rem;
+  height: 28px;
+  padding: 5px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  border-radius: var(--radius-sm);
+  gap: 4px;
 }
 
-/* ---------- Table ---------- */
+.btn--xs {
+  height: 28px;
+  padding: 5px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  border-radius: var(--radius-sm);
+  gap: 4px;
+}
+
+.btn--xxs {
+  height: 24px;
+  padding: 5px 8px;
+  font-size: var(--font-size-xxxs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  border-radius: var(--radius-xs);
+  gap: 4px;
+}
+
+/* ==========================================================================
+   Table – NCDS (DES-SPEC-045)
+   ========================================================================== */
 .table-wrap {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
 }
 
 .table thead {
-  background: var(--color-bg);
+  background: var(--gray-50);
 }
 
 .table th {
   padding: 12px 16px;
   text-align: left;
   font-weight: 600;
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -259,6 +758,7 @@ img {
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border-light);
   color: var(--color-text);
+  font-size: var(--font-size-sm);
 }
 
 .table tbody tr:last-child td {
@@ -266,16 +766,22 @@ img {
 }
 
 .table tbody tr:hover {
-  background: var(--color-primary-light);
+  background: var(--gray-50);
 }
 
-/* ---------- Status Badge ---------- */
+/* ==========================================================================
+   Status Badge – NCDS (DES-SPEC-033)
+   ========================================================================== */
 .badge {
-  display: inline-block;
-  padding: 3px 10px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  min-width: 22px;
+  padding: 2px 8px;
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  border-radius: 9999px;
   white-space: nowrap;
 }
 
@@ -294,16 +800,19 @@ img {
   color: var(--color-status-uploaded-text);
 }
 
-/* ---------- Score Badge ---------- */
+/* ==========================================================================
+   Score Badge – NCDS
+   ========================================================================== */
 .score-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 36px;
+  height: 22px;
   padding: 2px 8px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  border-radius: 20px;
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weights-commerce-sans-2);
+  border-radius: 9999px;
 }
 
 .score-badge--high {
@@ -321,13 +830,38 @@ img {
   color: var(--color-score-low-text);
 }
 
-/* ---------- Card ---------- */
+/* ==========================================================================
+   Scrape Status Badge
+   ========================================================================== */
+.scrape-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 2px 8px;
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  border-radius: 9999px;
+}
+
+.scrape-badge--partial {
+  background: var(--color-score-mid-bg);
+  color: var(--color-score-mid-text);
+}
+
+.scrape-badge--failed {
+  background: var(--color-score-low-bg);
+  color: var(--color-score-low-text);
+}
+
+/* ==========================================================================
+   Card – NCDS Block (DES-SPEC-042/043)
+   ========================================================================== */
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-m) var(--spacing-l);
+  box-shadow: var(--shadow-xs);
   transition: box-shadow var(--transition);
 }
 
@@ -337,16 +871,18 @@ img {
 
 .card--hero {
   text-align: center;
-  padding: 48px 20px;
+  padding: 10px 10px;
 }
 
 .card--hero p {
   color: var(--color-text-secondary);
   margin-bottom: 20px;
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
 }
 
-/* ---------- Article Card ---------- */
+/* ==========================================================================
+   Article Card
+   ========================================================================== */
 .article-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -356,19 +892,19 @@ img {
 }
 
 .article-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-xs);
 }
 
 .article-card.selected {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 2px rgba(247, 68, 78, 0.15);
 }
 
 .article-card__header {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 16px 16px 12px;
+  padding: var(--spacing-m) var(--spacing-m) 12px;
   cursor: pointer;
   user-select: none;
 }
@@ -388,7 +924,7 @@ img {
 }
 
 .article-card__title {
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1.4;
   margin-bottom: 6px;
@@ -406,9 +942,9 @@ img {
 .article-card__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--spacing-s);
   align-items: center;
-  font-size: 0.8rem;
+  font-size: var(--font-size-xxs);
   color: var(--color-text-secondary);
 }
 
@@ -419,7 +955,7 @@ img {
 }
 
 .article-card__toggle {
-  padding: 0 16px 4px;
+  padding: 0 var(--spacing-m) var(--spacing-xs);
   display: flex;
   align-items: center;
 }
@@ -427,18 +963,20 @@ img {
 .article-card__toggle-btn {
   background: none;
   border: none;
-  font-size: 0.8rem;
+  font-size: var(--font-size-xxs);
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: 4px 0;
-  font-family: var(--font-stack);
+  padding: var(--spacing-xs) 0;
+  font-family: var(--font-family-base);
 }
 
 .article-card__toggle-btn:hover {
   color: var(--color-primary);
 }
 
-/* ---------- Accordion Body ---------- */
+/* ==========================================================================
+   Accordion Body
+   ========================================================================== */
 .article-card__body {
   max-height: 0;
   overflow: hidden;
@@ -447,14 +985,14 @@ img {
 
 .article-card__body.open {
   max-height: 2000px;
-  padding: 0 16px 16px;
+  padding: 0 var(--spacing-m) var(--spacing-m);
 }
 
 .article-card__body-inner {
-  padding: 14px;
+  padding: var(--spacing-sm, 14px);
   background: var(--color-bg);
   border-radius: var(--radius-sm);
-  font-size: 0.88rem;
+  font-size: var(--font-size-xs);
   line-height: 1.7;
   color: var(--color-text);
   white-space: pre-wrap;
@@ -464,27 +1002,222 @@ img {
 .article-card__image {
   width: 100%;
   max-height: 240px;
-  object-fit: cover;
+  object-fit: scale-down;
   border-radius: var(--radius-sm);
   margin-bottom: 10px;
 }
 
-/* ---------- Category Group ---------- */
+/* ==========================================================================
+   Loading Overlay (optimistic UI)
+   ========================================================================== */
+.article-card__loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-s);
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: var(--radius-md);
+  z-index: 2;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Body Edit
+   ========================================================================== */
+.body-edit-trigger {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.body-edit-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-family-base);
+  line-height: 1.7;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  resize: vertical;
+  outline: none;
+}
+
+.body-edit-textarea:focus {
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 1px var(--blue-500);
+}
+
+.body-edit-actions {
+  display: flex;
+  gap: var(--spacing-s);
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+/* ==========================================================================
+   Category Group
+   ========================================================================== */
 .category-group {
-  margin-bottom: 28px;
+  margin-bottom: var(--spacing-xl);
+}
+
+.category-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: var(--spacing-s);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .category-group__title {
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-2);
   color: var(--color-text);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--color-primary);
-  display: inline-block;
 }
 
-/* ---------- Progress ---------- */
+.category-group__title span {
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  color: var(--color-text-secondary);
+  margin-left: 6px;
+}
+
+.category-group__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-s);
+}
+
+/* ==========================================================================
+   Select – NCDS Input (DES-SPEC-018)
+   ========================================================================== */
+.sort-select {
+  height: 36px;
+  padding: 7px 12px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  outline: none;
+}
+
+.sort-select:focus {
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 1px var(--blue-500);
+}
+
+/* ==========================================================================
+   Stepper – NCDS
+   ========================================================================== */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 28px;
+}
+
+.stepper__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-s);
+  position: relative;
+}
+
+.stepper__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-2);
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stepper__label {
+  font-size: var(--font-size-xxs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transition: color 0.3s ease;
+}
+
+.stepper__connector {
+  flex: 1;
+  height: 3px;
+  min-width: 40px;
+  max-width: 80px;
+  background: var(--color-border);
+  margin: 0 var(--spacing-s);
+  margin-bottom: 24px;
+  border-radius: 2px;
+  transition: background 0.3s ease;
+}
+
+/* Stepper states – NCDS Primary Red */
+.stepper__step.active .stepper__icon {
+  background: var(--color-primary);
+  color: var(--base-white);
+  box-shadow: 0 0 0 4px rgba(247, 68, 78, 0.2);
+}
+
+.stepper__step.active .stepper__label {
+  color: var(--color-primary);
+}
+
+.stepper__step.completed .stepper__icon {
+  background: var(--color-success);
+  color: var(--base-white);
+}
+
+.stepper__step.completed .stepper__label {
+  color: var(--color-success);
+}
+
+.stepper__step.error .stepper__icon {
+  background: var(--color-danger);
+  color: var(--base-white);
+}
+
+.stepper__step.error .stepper__label {
+  color: var(--color-danger);
+}
+
+.stepper__connector.completed {
+  background: var(--color-success);
+}
+
+/* ==========================================================================
+   Progress Error
+   ========================================================================== */
+.progress-error {
+  margin-top: 20px;
+}
+
+.progress-error__msg {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-1);
+  margin-bottom: var(--spacing-xs);
+}
+
+/* ==========================================================================
+   Progress – NCDS Progress Bar (DES-SPEC-038)
+   ========================================================================== */
 .progress-container {
   text-align: center;
   padding: 60px 20px;
@@ -495,51 +1228,56 @@ img {
   max-width: 480px;
   margin: 20px auto;
   height: 8px;
-  background: var(--color-border);
-  border-radius: 4px;
+  background: var(--gray-200);
+  border-radius: var(--radius-xs);
   overflow: hidden;
 }
 
 .progress-bar {
   height: 100%;
   background: var(--color-primary);
-  border-radius: 4px;
-  transition: width 0.4s ease;
+  border-radius: var(--radius-xs);
+  transition: width 300ms ease-out;
   width: 0%;
 }
 
 .progress-step {
-  font-size: 0.85rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   margin-top: 10px;
 }
 
 .progress-message {
-  font-size: 1rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text);
   margin-top: 6px;
 }
 
-/* ---------- Tabs ---------- */
+/* ==========================================================================
+   Tabs – NCDS Underline (DES-SPEC-030)
+   ========================================================================== */
 .tabs {
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--color-border);
-  margin-bottom: 24px;
+  margin-bottom: var(--spacing-l);
 }
 
 .tab-btn {
-  padding: 10px 24px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  font-family: var(--font-stack);
-  background: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 10px var(--spacing-m);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-1);
+  font-family: var(--font-family-base);
+  background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: color var(--transition), border-color var(--transition);
+  transition: color var(--transition);
 }
 
 .tab-btn:hover {
@@ -548,7 +1286,17 @@ img {
 
 .tab-btn.active {
   color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+  font-weight: var(--font-weights-commerce-sans-2);
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-primary);
 }
 
 .tab-panel {
@@ -560,13 +1308,15 @@ img {
   display: block;
 }
 
-/* ---------- Preview ---------- */
+/* ==========================================================================
+   Preview – Markdown
+   ========================================================================== */
 .md-preview {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 24px;
-  font-size: 0.9rem;
+  padding: var(--spacing-l);
+  font-size: var(--font-size-sm);
   line-height: 1.8;
   overflow-x: auto;
 }
@@ -574,13 +1324,13 @@ img {
 .md-preview table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
+  margin: var(--spacing-m) 0;
 }
 
 .md-preview th,
 .md-preview td {
   border: 1px solid var(--color-border);
-  padding: 8px 12px;
+  padding: var(--spacing-s) 12px;
   text-align: left;
 }
 
@@ -600,14 +1350,16 @@ img {
   border-radius: var(--radius-sm);
 }
 
-/* ---------- Replacement Overlay ---------- */
+/* ==========================================================================
+   Overlay & Modal – NCDS (DES-SPEC-026)
+   ========================================================================== */
 .overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -625,32 +1377,47 @@ img {
   box-shadow: var(--shadow-lg);
   max-width: 800px;
   width: 90%;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 28px;
+  max-height: calc(100vh - 160px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: slideUp 0.25s ease;
 }
 
+.modal__header {
+  padding: var(--spacing-l) var(--spacing-l) 0;
+  flex-shrink: 0;
+}
+
 .modal__title {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-2);
   margin-bottom: 20px;
+}
+
+.modal__content {
+  overflow-y: auto;
+  padding: 0 20px var(--spacing-l);
+  flex: 1;
+  min-height: 0;
 }
 
 .modal__footer {
   display: flex;
-  gap: 10px;
+  gap: var(--spacing-s);
   justify-content: flex-end;
-  margin-top: 20px;
-  padding-top: 16px;
+  padding: var(--spacing-m) var(--spacing-l) var(--spacing-l);
   border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
-/* ---------- Replacement Comparison ---------- */
+/* ==========================================================================
+   Replacement Comparison
+   ========================================================================== */
 .replacement-item {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-m);
   overflow: hidden;
 }
 
@@ -658,17 +1425,17 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 12px var(--spacing-m);
   background: var(--color-bg);
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   border-bottom: 1px solid var(--color-border);
 }
 
 .replacement-item__count {
-  font-size: 0.8rem;
+  font-size: var(--font-size-xxs);
   color: var(--color-text-secondary);
-  font-weight: 500;
+  font-weight: var(--font-weights-commerce-sans-1);
 }
 
 .replacement-compare {
@@ -678,24 +1445,24 @@ img {
 }
 
 .replacement-side {
-  padding: 14px 16px;
+  padding: 14px var(--spacing-m);
 }
 
 .replacement-side--before {
-  background: #fef2f2;
+  background: var(--primary-red-50);
   border-right: 1px solid var(--color-border);
 }
 
 .replacement-side--after {
-  background: #f0fdf4;
+  background: var(--green-50);
 }
 
 .replacement-side__label {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weights-commerce-sans-2);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-s);
 }
 
 .replacement-side--before .replacement-side__label {
@@ -703,13 +1470,13 @@ img {
 }
 
 .replacement-side--after .replacement-side__label {
-  color: #16a34a;
+  color: var(--green-500);
 }
 
 .replacement-side__title {
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: var(--spacing-xs);
   line-height: 1.4;
 }
 
@@ -719,18 +1486,20 @@ img {
 }
 
 .replacement-side__meta {
-  font-size: 0.78rem;
+  font-size: var(--font-size-xxs);
   color: var(--color-text-secondary);
 }
 
 .replacement-side__preview {
-  margin-top: 8px;
-  font-size: 0.82rem;
+  margin-top: var(--spacing-s);
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
 
-/* ---------- Filters ---------- */
+/* ==========================================================================
+   Filters – NCDS (DES-SPEC-054 Search Filter)
+   ========================================================================== */
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -742,138 +1511,203 @@ img {
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .filter-group label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  color: var(--gray-600);
 }
 
 .filter-group input[type="date"],
 .filter-group input[type="text"] {
-  padding: 8px 12px;
-  font-size: 0.88rem;
-  font-family: var(--font-stack);
-  border: 1px solid var(--color-border);
+  height: 36px;
+  padding: 7px 12px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  border: 1px solid var(--gray-200);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   outline: none;
-  transition: border-color var(--transition);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.filter-group input::placeholder {
+  color: var(--gray-300);
 }
 
 .filter-group input:focus {
-  border-color: var(--color-primary);
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 1px var(--blue-500);
 }
 
-/* ---------- Pagination ---------- */
+/* ==========================================================================
+   Pagination – NCDS (DES-SPEC-032)
+   ========================================================================== */
 .pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  margin-top: 20px;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-l);
 }
 
 .pagination__btn {
-  padding: 6px 12px;
-  font-size: 0.85rem;
-  font-family: var(--font-stack);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: var(--radius-sm);
-  color: var(--color-text);
+  color: var(--gray-600);
   cursor: pointer;
   transition: background var(--transition), color var(--transition);
 }
 
 .pagination__btn:hover:not(:disabled):not(.active) {
-  background: var(--color-bg);
+  background: var(--gray-50);
 }
 
 .pagination__btn.active {
-  background: var(--color-primary);
-  color: #fff;
-  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: var(--font-weights-commerce-sans-2);
+  border-bottom: 2px solid var(--color-primary);
+  border-radius: 0;
 }
 
 .pagination__btn:disabled {
-  opacity: 0.4;
+  color: var(--gray-200);
   cursor: not-allowed;
 }
 
-/* ---------- Action Bar ---------- */
+/* ==========================================================================
+   Action Bar
+   ========================================================================== */
 .action-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 16px 0;
+  gap: var(--spacing-s);
+  padding: var(--spacing-m) var(--spacing-l);
   border-top: 1px solid var(--color-border);
-  margin-top: 24px;
+  margin-top: var(--spacing-l);
   position: sticky;
   bottom: 0;
-  background: var(--color-bg);
+  background: var(--color-surface);
   z-index: 50;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.action-bar__count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+.action-bar__count.has-selection {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .action-bar__spacer {
   flex: 1;
 }
 
-/* ---------- Toast ---------- */
+/* ==========================================================================
+   Toast – NCDS (DES-SPEC-027 Notification)
+   ========================================================================== */
 .toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: var(--spacing-m);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 300;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-s);
+  align-items: center;
 }
 
 .toast {
-  padding: 12px 20px;
-  font-size: 0.88rem;
-  font-weight: 500;
-  border-radius: var(--radius-sm);
-  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 280px;
+  padding: 12px var(--spacing-l);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-1);
+  border-radius: var(--radius-md);
+  color: var(--base-white);
   box-shadow: var(--shadow-lg);
-  animation: slideIn 0.3s ease;
-  max-width: 360px;
+  animation: slideDown 0.3s ease;
+  max-width: 400px;
+}
+
+.toast__icon {
+  flex-shrink: 0;
+  font-size: var(--font-size-lg);
+}
+
+.toast__msg {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: var(--font-size-lg);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.toast__close:hover {
+  color: var(--base-white);
 }
 
 .toast--success {
-  background: #16a34a;
+  background: var(--gray-700);
 }
 
 .toast--error {
-  background: var(--color-danger);
+  background: var(--primary-red-600);
 }
 
 .toast--info {
-  background: var(--color-primary);
+  background: var(--gray-700);
 }
 
-/* ---------- Empty State ---------- */
+/* ==========================================================================
+   Empty State (DES-SPEC-037)
+   ========================================================================== */
 .empty-state {
   text-align: center;
-  padding: 48px 20px;
+  padding: 48px var(--spacing-l);
   color: var(--color-text-secondary);
 }
 
 .empty-state__icon {
-  font-size: 2.5rem;
+  font-size: var(--font-size-display-md);
   margin-bottom: 12px;
   opacity: 0.4;
 }
 
 .empty-state__text {
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
 }
 
-/* ---------- Spinner ---------- */
+/* ==========================================================================
+   Spinner (DES-SPEC-040)
+   ========================================================================== */
 .spinner {
   display: inline-block;
   width: 20px;
@@ -884,7 +1718,44 @@ img {
   animation: spin 0.7s linear infinite;
 }
 
-/* ---------- Animations ---------- */
+/* ==========================================================================
+   Skeleton Loading
+   ========================================================================== */
+.skeleton-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-m);
+  margin-bottom: 12px;
+}
+
+.skeleton-line {
+  height: 14px;
+  background: linear-gradient(90deg, var(--color-border-light) 25%, var(--color-border) 50%, var(--color-border-light) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-xs);
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-line--title {
+  width: 70%;
+  height: 16px;
+  margin-bottom: 10px;
+}
+
+.skeleton-line--meta {
+  width: 50%;
+  height: 12px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ==========================================================================
+   Animations
+   ========================================================================== */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -892,6 +1763,11 @@ img {
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -904,10 +1780,12 @@ img {
   to { transform: rotate(360deg); }
 }
 
-/* ---------- Responsive ---------- */
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
 @media (max-width: 768px) {
   .container {
-    padding: 0 16px;
+    padding: 0 var(--spacing-m);
   }
 
   .replacement-compare {
@@ -932,9 +1810,330 @@ img {
     width: 95%;
     padding: 20px;
   }
+
+  .stepper__label {
+    font-size: var(--font-size-xxxs);
+  }
+
+  .stepper__icon {
+    width: 30px;
+    height: 30px;
+    font-size: var(--font-size-xxs);
+  }
+
+  .stepper__connector {
+    min-width: 24px;
+  }
 }
 
-/* ---------- Utility ---------- */
+/* ==========================================================================
+   Images Grid
+   ========================================================================== */
+.images-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-s);
+  margin-bottom: var(--spacing-m);
+}
+
+.images-toolbar__count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.images-toolbar__spacer {
+  flex: 1;
+}
+
+.images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-m);
+}
+
+.image-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: box-shadow var(--transition);
+}
+
+.image-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.image-card__preview {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  background: var(--color-bg);
+  display: block;
+}
+
+.image-card__info {
+  padding: 12px;
+}
+
+.image-card__title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-bottom: var(--spacing-s);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-card__actions {
+  display: flex;
+  gap: var(--spacing-s);
+}
+
+/* ==========================================================================
+   Modal Tabs
+   ========================================================================== */
+.modal-tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: var(--spacing-s) 14px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  font-family: var(--font-family-base);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition);
+}
+
+.modal-tab-btn:hover {
+  color: var(--color-text);
+}
+
+.modal-tab-btn.active {
+  color: var(--color-primary);
+}
+
+.modal-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-primary);
+}
+
+.modal-tab-panel {
+  display: none;
+}
+
+.modal-tab-panel.active {
+  display: block;
+}
+
+/* ==========================================================================
+   MD Preview Image Placeholder
+   ========================================================================== */
+.md-preview__image-placeholder {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xxs);
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Quick Status Cards (Dashboard)
+   ========================================================================== */
+.quick-status {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-m);
+  margin-bottom: var(--spacing-s);
+}
+
+.quick-status__card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: box-shadow var(--transition);
+}
+
+.quick-status__card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.quick-status__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weights-commerce-sans-2);
+  color: var(--color-text);
+}
+
+.quick-status__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weights-commerce-sans-1);
+}
+
+.quick-status__badge--pending {
+  color: var(--color-text-muted);
+}
+
+.quick-status__badge--preview {
+  color: var(--color-status-preview-text);
+}
+
+.quick-status__badge--uploaded {
+  color: var(--color-status-uploaded-text);
+}
+
+.quick-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.quick-status__badge--pending .quick-status__dot {
+  background: var(--color-text-muted);
+}
+
+.quick-status__badge--preview .quick-status__dot {
+  background: var(--color-status-preview-text);
+}
+
+.quick-status__badge--uploaded .quick-status__dot {
+  background: var(--color-status-uploaded-text);
+}
+
+.quick-status__link {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.quick-status__link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .quick-status {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Page Intro (generate/notices idle)
+   ========================================================================== */
+.page-intro {
+  text-align: center;
+  padding: 48px var(--spacing-l) var(--spacing-xxl);
+}
+
+.page-intro__title {
+  font-size: var(--font-size-display-xs);
+  font-weight: 800;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-s);
+  letter-spacing: -0.02em;
+}
+
+.page-intro__desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xl);
+}
+
+.page-intro__last {
+  margin-top: var(--spacing-l);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Platform Chip
+   ========================================================================== */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-s);
+  justify-content: center;
+  margin-bottom: 28px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Mini Stepper (idle state)
+   ========================================================================== */
+.mini-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: var(--spacing-xl);
+}
+
+.mini-stepper__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.mini-stepper__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weights-commerce-sans-2);
+  background: var(--color-border-light);
+  color: var(--color-text-muted);
+}
+
+.mini-stepper__label {
+  font-size: var(--font-size-xxxs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.mini-stepper__connector {
+  width: 32px;
+  height: 2px;
+  background: var(--color-border);
+  margin: 0 6px;
+  margin-bottom: 22px;
+  border-radius: 1px;
+}
+
+/* ==========================================================================
+   Utility
+   ========================================================================== */
 .hidden {
   display: none !important;
 }
@@ -944,9 +2143,305 @@ img {
 }
 
 .mt-4 {
-  margin-top: 16px;
+  margin-top: var(--spacing-m);
 }
 
 .mb-4 {
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-m);
+}
+
+/* ==========================================================================
+   TOAST UI Grid – NCDS Theme Override (DES-SPEC-046)
+   ========================================================================== */
+.tui-grid-container {
+  font-family: var(--font-family-base) !important;
+  border: none !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+}
+
+.tui-grid-header-area {
+  background: var(--gray-100) !important;
+}
+
+.tui-grid-cell-header .tui-grid-cell-content {
+  color: var(--gray-500) !important;
+  font-size: var(--font-size-xs) !important;
+  font-weight: var(--font-weights-commerce-sans-1) !important;
+}
+
+.tui-grid-cell .tui-grid-cell-content {
+  color: var(--gray-700) !important;
+  font-size: var(--font-size-xs) !important;
+  font-weight: var(--font-weights-commerce-sans-0) !important;
+}
+
+.tui-grid-cell {
+  border-bottom: 1px solid var(--gray-100) !important;
+  border-right: none !important;
+  height: 48px !important;
+}
+
+.tui-grid-cell-header {
+  border-bottom: 1px solid var(--gray-100) !important;
+  border-right: 1px solid var(--gray-100) !important;
+}
+
+.tui-grid-row-hover .tui-grid-cell {
+  background: var(--gray-50) !important;
+}
+
+.tui-grid-border-line-top,
+.tui-grid-border-line-bottom,
+.tui-grid-border-line-left,
+.tui-grid-border-line-right {
+  background: transparent !important;
+}
+
+.tui-grid-row-odd .tui-grid-cell {
+  background: var(--base-white) !important;
+}
+
+.tui-grid-body-area {
+  border-top: none !important;
+}
+
+.tui-grid-scrollbar-y-inner-border,
+.tui-grid-scrollbar-x-inner-border {
+  background: var(--gray-100) !important;
+}
+
+/* TOAST UI Grid Pagination */
+.tui-grid-pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-l);
+  padding: 12px 0;
+}
+
+.tui-pagination .tui-page-btn {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  color: var(--gray-600) !important;
+  border: none !important;
+  background: none !important;
+  min-width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+
+.tui-pagination .tui-page-btn:hover {
+  background: var(--gray-50) !important;
+}
+
+.tui-pagination .tui-page-btn.tui-is-selected {
+  color: var(--color-primary) !important;
+  font-weight: var(--font-weights-commerce-sans-2) !important;
+  border-bottom: 2px solid var(--color-primary) !important;
+  border-radius: 0 !important;
+  background: none !important;
+}
+
+.tui-pagination .tui-page-btn.tui-is-disabled {
+  color: var(--gray-200) !important;
+}
+
+.tui-pagination .tui-page-btn .tui-ico-first,
+.tui-pagination .tui-page-btn .tui-ico-last,
+.tui-pagination .tui-page-btn .tui-ico-prev,
+.tui-pagination .tui-page-btn .tui-ico-next {
+  background-color: var(--gray-600);
+}
+
+.tui-pagination .tui-page-btn.tui-is-disabled .tui-ico-first,
+.tui-pagination .tui-page-btn.tui-is-disabled .tui-ico-last,
+.tui-pagination .tui-page-btn.tui-is-disabled .tui-ico-prev,
+.tui-pagination .tui-page-btn.tui-is-disabled .tui-ico-next {
+  background-color: var(--gray-200);
+}
+
+/* ==========================================================================
+   Flatpickr – NCDS Theme Override (Primary Red)
+   ========================================================================== */
+.flatpickr-calendar {
+  border: 1px solid var(--gray-100) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  font-family: var(--font-family-base) !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+  background: var(--primary-red-450) !important;
+  border-color: var(--primary-red-450) !important;
+}
+
+.flatpickr-day.selected:hover,
+.flatpickr-day.startRange:hover,
+.flatpickr-day.endRange:hover {
+  background: var(--primary-red-600) !important;
+  border-color: var(--primary-red-600) !important;
+}
+
+.flatpickr-day:hover {
+  background: var(--gray-50) !important;
+  border-color: var(--gray-50) !important;
+}
+
+.flatpickr-day.today {
+  border-color: var(--primary-red-450) !important;
+}
+
+.flatpickr-day.today:hover {
+  background: var(--primary-red-450) !important;
+  color: var(--base-white) !important;
+}
+
+.flatpickr-day.inRange {
+  background: var(--primary-red-50) !important;
+  border-color: var(--primary-red-50) !important;
+  box-shadow: -5px 0 0 var(--primary-red-50), 5px 0 0 var(--primary-red-50) !important;
+}
+
+.flatpickr-months .flatpickr-month {
+  color: var(--gray-700) !important;
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+  font-weight: 600 !important;
+}
+
+/* ==========================================================================
+   NCDS Search Filter Table (DES-SPEC-054)
+   ========================================================================== */
+.cos-filter-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.cos-filter-table td {
+  border: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.cos-filter-table .cos-filter-label {
+  background: var(--gray-50);
+  width: 120px;
+  white-space: nowrap;
+  padding: 10px 14px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weights-commerce-sans-1);
+  color: var(--gray-600);
+}
+
+.cos-filter-table .cos-filter-input {
+  padding: var(--spacing-s) 14px;
+}
+
+.cos-filter-table .cos-filter-input input,
+.cos-filter-table .cos-filter-input select {
+  height: 36px;
+  padding: 7px 12px;
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  outline: none;
+  font-family: var(--font-family-base);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.cos-filter-table .cos-filter-input input::placeholder {
+  color: var(--gray-300);
+}
+
+.cos-filter-table .cos-filter-input input:focus,
+.cos-filter-table .cos-filter-input select:focus {
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 1px var(--blue-500);
+}
+
+.cos-filter-actions {
+  display: inline-flex;
+  gap: var(--spacing-s);
+  align-items: center;
+}
+
+/* ==========================================================================
+   Custom Pagination
+   ========================================================================== */
+.custom-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-m);
+  padding: 12px 0;
+}
+
+.pg-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--spacing-s);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pg-btn:hover:not(:disabled):not(.pg-btn--active) {
+  background: var(--color-border-light);
+  color: var(--color-text);
+}
+
+.pg-btn--active {
+  background: var(--color-primary);
+  color: var(--base-white);
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.pg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Flowbite Conflict Overrides
+   ========================================================================== */
+button.btn {
+  line-height: normal;
+}
+
+/* Confirmed state */
+.action-bar--confirmed {
+  border-top: 3px solid var(--color-success, #38a169);
+  background: var(--color-success-light, #f0fff4);
+}
+
+.btn--confirmed {
+  background: var(--color-success, #38a169) !important;
+  border-color: var(--color-success, #38a169) !important;
+  color: #fff !important;
+  cursor: default;
+}
+
+.btn--pulse {
+  animation: pulse-highlight 1.5s ease-in-out 3;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(72, 187, 120, 0.3); }
 }

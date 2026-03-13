@@ -163,13 +163,13 @@ def build_reframe_table(
         category_label = f"**최상단**<br>**{article.category}**"
         rows.append(_build_row(article, category_label, scraped_texts, image_refs))
 
-    # Market articles
-    for article in picks.get("market", []):
+    # Other articles (기타 커머스/IT 동향)
+    for article in picks.get("other", []):
         rows.append(_build_row(article, f"**{article.category}**",
                                scraped_texts, image_refs))
 
-    # Other articles
-    for article in picks.get("other", []):
+    # Market articles (오픈마켓/소셜커머스)
+    for article in picks.get("market", []):
         rows.append(_build_row(article, f"**{article.category}**",
                                scraped_texts, image_refs))
 

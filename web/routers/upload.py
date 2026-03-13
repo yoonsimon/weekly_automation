@@ -1,6 +1,7 @@
 """Upload API router.
 
 Handles uploading confirmed markdown + images to Dooray wiki.
+Includes image upload and category-based sorting.
 """
 
 import logging
@@ -8,6 +9,7 @@ import os
 import re
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from dooray.wiki_client import DoorayApiError, DoorayWikiClient
 from web.models import UploadResponse
@@ -18,6 +20,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class UploadRequest(BaseModel):
+    parent_page_id: str | None = None
+    wiki_id: str | None = None
+
+
 def _get_dirs() -> tuple[str, str]:
     from web.app import BASE_DIR
     output_dir = os.path.join(BASE_DIR, "output")
@@ -25,8 +32,229 @@ def _get_dirs() -> tuple[str, str]:
     return output_dir, images_dir
 
 
+def _parse_dooray_wiki_url(url: str) -> tuple[str, str]:
+    """Dooray 위키 URL에서 wiki_id와 page_id를 추출합니다.
+
+    형식: https://{org}.dooray.com/wiki/{wiki_id}/{page_id}
+    """
+    m = re.match(r"https?://[^/]+/wiki/(\d+)/(\d+)", url.strip())
+    if not m:
+        raise ValueError("올바른 Dooray 위키 URL 형식이 아닙니다")
+    return m.group(1), m.group(2)
+
+
+# ------------------------------------------------------------------
+# Category sorting
+# ------------------------------------------------------------------
+
+CATEGORY_ORDER = {
+    "최상단": 1,
+    "기타 커머스/IT 동향": 2,
+    "오픈마켓/소셜커머스": 3,
+}
+
+
+def _sort_table_rows(md_content: str) -> str:
+    """테이블 행을 카테고리 순서대로 정렬합니다.
+
+    순서: 최상단 → 기타 커머스/IT 동향 → 오픈마켓/소셜커머스
+    """
+    lines = md_content.strip().split("\n")
+    if not lines or not lines[0].strip().startswith("|"):
+        return md_content
+
+    header_lines = lines[:2]
+    data_lines = [l for l in lines[2:] if l.strip().startswith("|")]
+
+    def row_sort_key(line: str) -> int:
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) < 2:
+            return 99
+        category = cells[1].replace("**", "").strip()
+        category = category.split("<br>")[0].strip()
+        return CATEGORY_ORDER.get(category, 99)
+
+    data_lines.sort(key=row_sort_key)
+    return "\n".join(header_lines + data_lines)
+
+
+# ------------------------------------------------------------------
+# Image upload helpers
+# ------------------------------------------------------------------
+
+def _find_image_refs(content: str) -> list[str]:
+    """마크다운 콘텐츠에서 images/article_img_xxx 형태의 파일명을 추출합니다."""
+    return re.findall(r'images/(article_img_[^)]+)', content)
+
+
+def _upload_images_and_replace(
+    client: DoorayWikiClient,
+    page_id: str,
+    content: str,
+    images_dir: str,
+) -> str:
+    """이미지를 두레이에 업로드하고 마크다운 경로를 page-files로 치환합니다."""
+    image_files = _find_image_refs(content)
+    if not image_files:
+        return content
+
+    file_id_map: dict[str, str] = {}
+    for img_file in image_files:
+        img_path = os.path.join(images_dir, img_file)
+        if not os.path.isfile(img_path):
+            logger.warning("이미지 파일 없음, 건너뜀: %s", img_file)
+            continue
+
+        try:
+            page_file_id = client.upload_file(page_id, img_path)
+            file_id_map[img_file] = page_file_id
+            logger.info("이미지 업로드 성공: %s → %s", img_file, page_file_id)
+        except Exception as e:
+            logger.error("이미지 업로드 실패: %s (%s)", img_file, e)
+
+    logger.info("이미지 업로드: %d/%d건 성공", len(file_id_map), len(image_files))
+
+    # 성공한 이미지 경로 치환
+    result = content
+    for img_file, fid in file_id_map.items():
+        result = result.replace(f"images/{img_file}", f"/page-files/{fid}")
+
+    # 실패한 이미지 참조 제거
+    result = re.sub(r'!\[[^\]]*\]\(images/[^)]+\)\s*', '', result)
+    result = re.sub(r'\n{3,}', '\n\n', result)
+
+    return result
+
+
+# ------------------------------------------------------------------
+# Table → Section converter
+# ------------------------------------------------------------------
+
+UPLOAD_BODY_MAX_CHARS = 0  # 0 = 제한 없음 (원문 전체 업로드)
+
+
+def _table_to_sections(md_content: str) -> str:
+    """마크다운 테이블을 섹션(제목+본문) 형식으로 변환합니다.
+
+    테이블 행: | 날짜 | 카테고리 | 내용 | 이미지 |
+    내용 셀:  [제목](url)<br><br>본문...
+
+    변환 결과:
+      ### 제목
+      **카테고리** · 날짜
+
+      본문 (최대 UPLOAD_BODY_MAX_CHARS자)
+
+      이미지
+
+      ---
+    """
+    lines = md_content.strip().split("\n")
+
+    if not lines or not lines[0].strip().startswith("|"):
+        return md_content
+
+    sections: list[str] = []
+    for line in lines[2:]:
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+
+        raw_cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(raw_cells) < 3:
+            continue
+
+        date_str = raw_cells[0]
+        category_raw = raw_cells[1]
+        content_raw = raw_cells[2]
+        image_raw = raw_cells[3] if len(raw_cells) > 3 else ""
+
+        category = category_raw.replace("**", "").replace("<br>", " / ")
+
+        title_link = ""
+        body_text = content_raw
+
+        link_match = re.match(r'\[([^\]]*)\]\(([^)]+)\)', content_raw)
+        if link_match:
+            title = link_match.group(1)
+            url = link_match.group(2)
+            title_link = f"[{title}]({url})"
+            body_text = content_raw[link_match.end():]
+
+        body_text = re.sub(r'^(<br>)+', '', body_text).strip()
+        body_text = body_text.replace("<br><br>", "\n\n").replace("<br>", "\n")
+        body_text = body_text.replace("&lt;", "<").replace("&gt;", ">")
+
+        if UPLOAD_BODY_MAX_CHARS > 0 and len(body_text) > UPLOAD_BODY_MAX_CHARS:
+            truncated = body_text[:UPLOAD_BODY_MAX_CHARS]
+            last_space = truncated.rfind(" ")
+            last_newline = truncated.rfind("\n")
+            cut_at = max(last_space, last_newline)
+            if cut_at > UPLOAD_BODY_MAX_CHARS // 2:
+                truncated = truncated[:cut_at]
+            body_text = truncated.rstrip() + " ..."
+
+        parts = []
+        if title_link:
+            parts.append(f"### {title_link}")
+        parts.append(f"**{category}** · {date_str}")
+        parts.append("")
+        if body_text:
+            parts.append(body_text)
+            parts.append("")
+        if image_raw:
+            parts.append(image_raw)
+            parts.append("")
+        parts.append("---")
+
+        sections.append("\n".join(parts))
+
+    if not sections:
+        return md_content
+
+    return "\n\n".join(sections)
+
+
+# ------------------------------------------------------------------
+# API endpoints
+# ------------------------------------------------------------------
+
+class ResolveWikiUrlRequest(BaseModel):
+    url: str
+
+
+@router.post("/resolve-wiki-url")
+async def resolve_wiki_url(body: ResolveWikiUrlRequest):
+    """Dooray 위키 URL을 파싱하고 해당 페이지 정보를 반환합니다."""
+    try:
+        wiki_id_from_url, page_id = _parse_dooray_wiki_url(body.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    from web.app import get_config
+    config = get_config()
+    dooray_config = config.get("dooray", {})
+    api_token = dooray_config.get("api_token", "")
+
+    if not api_token:
+        raise HTTPException(status_code=500, detail="두레이 API 토큰이 설정되지 않았습니다")
+
+    try:
+        client = DoorayWikiClient(api_token=api_token, wiki_id=wiki_id_from_url)
+        page_info = client.get_page_content(page_id)
+        subject = page_info.get("subject", "")
+        return {
+            "page_id": page_id,
+            "wiki_id": wiki_id_from_url,
+            "subject": subject,
+            "url": body.url.strip(),
+        }
+    except DoorayApiError as e:
+        raise HTTPException(status_code=502, detail=f"페이지 정보 조회 실패: {e}")
+
+
 @router.post("/{history_id}", response_model=UploadResponse)
-async def upload_to_dooray(history_id: str):
+async def upload_to_dooray(history_id: str, body: UploadRequest | None = None):
     """히스토리 항목의 마크다운과 이미지를 두레이 위키에 업로드합니다."""
     # 1. Load entry
     entry = history_service.get_entry_by_id(history_id)
@@ -46,59 +274,54 @@ async def upload_to_dooray(history_id: str):
     wiki_id = dooray_config.get("wiki_id", "")
     parent_page_id = dooray_config.get("articles_parent_page_id", "")
 
+    if body and body.parent_page_id:
+        parent_page_id = body.parent_page_id
+    if body and body.wiki_id:
+        wiki_id = body.wiki_id
+
     if not api_token or not wiki_id:
         raise HTTPException(status_code=500, detail="두레이 API 토큰 또는 위키 ID가 설정되지 않았습니다")
     if not parent_page_id:
-        raise HTTPException(status_code=500, detail="dooray.articles_parent_page_id가 설정되지 않았습니다")
+        raise HTTPException(
+            status_code=422,
+            detail="articles_parent_page_id_missing",
+        )
 
     try:
         client = DoorayWikiClient(api_token=api_token, wiki_id=wiki_id)
+        _, images_dir = _get_dirs()
 
-        # 4. Create wiki page
-        week_label = ""
-        if entry.week_range and len(entry.week_range) >= 2:
-            week_label = f" ({entry.week_range[0]} ~ {entry.week_range[1]})"
-        subject = f"주간 기사 모음{week_label}"
+        # 4. 카테고리 순서대로 테이블 행 정렬
+        sorted_content = _sort_table_rows(md_content)
+
+        # 5. 테이블 → 섹션 형식 변환 (두레이 렌더링 호환)
+        upload_content = _table_to_sections(sorted_content)
+
+        # 6. 페이지 생성 (placeholder - 이미지 업로드 후 본문 업데이트)
+        from scraper.notice_scraper import get_week_label
+        week_label = get_week_label()
+        subject = f"주간 기사 모음 ({week_label})"
 
         page_result = client.create_page(
             parent_page_id=parent_page_id,
             subject=subject,
-            content=md_content,
+            content="업로드 중...",
         )
         page_id = page_result.get("id", "")
 
         if not page_id:
             raise HTTPException(status_code=500, detail="위키 페이지 생성 결과에서 ID를 찾을 수 없습니다")
 
-        # 5. Upload images and replace local refs with Dooray refs
-        updated_content = md_content
-        image_pattern = re.compile(r"!\[([^\]]*)\]\(images/([^)]+)\)")
+        # 7. 이미지 업로드 + 경로 치환
+        upload_content = _upload_images_and_replace(
+            client, page_id, upload_content, images_dir
+        )
 
-        for match in image_pattern.finditer(md_content):
-            alt_text = match.group(1)
-            image_filename = match.group(2)
-            _, images_dir = _get_dirs()
-            image_path = os.path.join(images_dir, image_filename)
+        # 8. 페이지 본문 업데이트
+        client.modify_page_content(page_id, upload_content)
+        logger.info("페이지 업데이트 완료: %s", page_id)
 
-            if not os.path.isfile(image_path):
-                logger.warning("이미지 파일 없음: %s", image_path)
-                continue
-
-            try:
-                page_file_id = client.upload_file(page_id, image_path)
-                dooray_ref = f"![{alt_text}](/page-files/{page_file_id})"
-                local_ref = match.group(0)
-                updated_content = updated_content.replace(local_ref, dooray_ref)
-                logger.info("이미지 업로드 완료: %s -> %s", image_filename, page_file_id)
-            except Exception:
-                logger.exception("이미지 업로드 실패: %s", image_filename)
-
-        # 6. Update page content with Dooray image refs
-        if updated_content != md_content:
-            client.modify_page_content(page_id, updated_content)
-            logger.info("위키 페이지 이미지 참조 업데이트 완료")
-
-        # 7. Update history entry status
+        # 9. Update history entry status
         history_service.update_status(
             history_id, "업로드완료", dooray_page_id=page_id
         )

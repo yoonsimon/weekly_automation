@@ -5,7 +5,7 @@ import sys
 
 import yaml
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from web.routers import generation, history, upload  # noqa: E402
+from web.routers import generation, history, notices, upload  # noqa: E402
 
 app = FastAPI(title="주간 뉴스 자동화 대시보드", version="1.0.0")
 
@@ -58,6 +58,7 @@ def startup():
 app.include_router(history.router, prefix="/api/history", tags=["history"])
 app.include_router(generation.router, prefix="/api/generate", tags=["generation"])
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
+app.include_router(notices.router, prefix="/api/notices", tags=["notices"])
 
 # ---------------------------------------------------------------------------
 # Static files
@@ -71,6 +72,15 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/output", StaticFiles(directory=OUTPUT_DIR), name="output")
+
+
+@app.middleware("http")
+async def no_cache(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/") or path in ("/", "/log", "/generate", "/notices"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -90,3 +100,8 @@ async def log_page():
 @app.get("/generate")
 async def generate_page():
     return FileResponse(os.path.join(STATIC_DIR, "generate.html"))
+
+
+@app.get("/notices")
+async def notices_page():
+    return FileResponse(os.path.join(STATIC_DIR, "notices.html"))

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항 - KR EC Trend</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=8">
+  <!-- TOAST UI Grid -->
+  <link rel="stylesheet" href="https://uicdn.toast.com/grid/latest/tui-grid.css">
+  <!-- Flatpickr -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <!-- Flowbite -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.css">
+</head>
+<body>
+
+  <div class="shell">
+    <!-- LNB -->
+    <aside class="lnb">
+      <a href="/" class="lnb__brand">KR EC Trend</a>
+      <nav class="lnb__nav">
+        <a href="/generate" class="lnb__item">
+          <span class="lnb__label">기사 생성</span>
+        </a>
+        <a href="/notices" class="lnb__item lnb__item--active">
+          <span class="lnb__label">공지사항</span>
+        </a>
+        <a href="/log" class="lnb__item">
+          <span class="lnb__label">이력</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main -->
+    <div class="shell__main">
+      <header class="header">
+        <div class="container">
+          <h1 class="header__title">공지사항</h1>
+        </div>
+      </header>
+
+      <main class="container">
+
+    <!-- State: Idle -->
+    <section id="state-idle" class="section">
+      <div class="page-intro">
+        <h2 id="notice-week-title" class="page-intro__title"></h2>
+        <p class="page-intro__desc">아래 플랫폼의 최신 공지를 수집합니다</p>
+
+        <div class="chip-group">
+          <span class="chip">아임웹</span>
+          <span class="chip">카페24-쇼핑몰</span>
+          <span class="chip">카페24-기능</span>
+          <span class="chip">카페24-업데이트</span>
+          <span class="chip">카페24-개발자센터</span>
+          <span class="chip">메이크샵</span>
+        </div>
+
+        <button id="btn-collect" class="btn btn--primary btn--lg">수집 시작하기</button>
+      </div>
+    </section>
+
+    <!-- State: Loading -->
+    <section id="state-loading" class="section hidden">
+      <div class="page-intro">
+        <div class="spinner" style="width:28px; height:28px; border-width:3px;"></div>
+        <p class="page-intro__desc" style="margin-top:20px; margin-bottom:0;">공지사항 수집 중...</p>
+      </div>
+    </section>
+
+    <!-- State: Results -->
+    <section id="state-results" class="section hidden">
+
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <h2 style="font-size:18px; font-weight:700;">수집 결과</h2>
+        <span id="week-range-label" style="font-size:13px; color:var(--color-text-secondary);"></span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="tab-notices">공지 목록</button>
+        <button class="tab-btn" data-tab="tab-md">MD 미리보기</button>
+      </div>
+
+      <!-- Tab 1: Notice list -->
+      <div id="tab-notices" class="tab-panel active">
+        <div id="platforms-container"></div>
+      </div>
+
+      <!-- Tab 2: Markdown preview -->
+      <div id="tab-md" class="tab-panel">
+        <div id="md-preview-content" class="md-preview"></div>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="action-bar">
+        <span id="total-count-label" class="action-bar__count"></span>
+        <div class="action-bar__spacer"></div>
+        <button id="btn-recollect" class="btn btn--secondary">다시 수집</button>
+        <button id="btn-upload" class="btn btn--success">두레이 업로드</button>
+      </div>
+
+    </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Wiki URL Modal -->
+  <div id="wiki-url-modal" class="overlay hidden">
+    <div class="modal" style="max-width:540px;">
+      <div class="modal__header">
+        <h3 class="modal__title">업로드 위치 선택</h3>
+      </div>
+      <div class="modal__content" style="padding:16px 24px;">
+
+        <!-- Recent pages -->
+        <div id="recent-pages-section" class="hidden">
+          <p style="margin-bottom:8px; font-size:13px; color:var(--color-text-secondary); font-weight:600;">최근 사용한 위키 페이지</p>
+          <div id="recent-pages-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;"></div>
+        </div>
+
+        <!-- New URL input -->
+        <p style="margin-bottom:8px; font-size:13px; color:var(--color-text-secondary); font-weight:600;">새 위키 페이지 URL</p>
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <input type="text" id="wiki-url-input"
+                 placeholder="https://nhnent.dooray.com/wiki/..."
+                 style="flex:1; padding:10px 12px; border:1px solid var(--color-border); border-radius:8px; font-size:14px;">
+          <button id="btn-wiki-url-verify" class="btn btn--secondary btn--sm" style="white-space:nowrap; padding:10px 14px;">확인</button>
+        </div>
+        <p id="wiki-url-error" class="hidden" style="margin-top:8px; color:var(--color-danger); font-size:13px;"></p>
+
+        <!-- Resolved page info -->
+        <div id="wiki-url-resolved" class="hidden" style="margin-top:12px; padding:12px; background:var(--color-primary-light); border-radius:8px; border:1px solid var(--color-indigo-100);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--color-primary); font-weight:600;" id="resolved-page-name"></span>
+          </div>
+          <div style="margin-top:4px; font-size:12px; color:var(--color-text-muted);" id="resolved-page-id"></div>
+        </div>
+
+      </div>
+      <div class="modal__footer">
+        <button id="btn-wiki-url-cancel" class="btn btn--secondary btn--sm">취소</button>
+        <button id="btn-wiki-url-upload" class="btn btn--primary btn--sm" disabled>업로드</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.js"></script>
+  <script src="/static/js/api.js?v=4"></script>
+  <script src="/static/js/notices.js?v=4"></script>
+</body>
+</html>

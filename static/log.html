@@ -3,88 +3,122 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>전체 생성 이력 - 주간 뉴스 대시보드</title>
-  <link rel="stylesheet" href="/static/css/style.css">
+  <title>전체 생성 이력 - KR EC Trend</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=8">
+  <!-- TOAST UI Grid -->
+  <link rel="stylesheet" href="https://uicdn.toast.com/grid/latest/tui-grid.css">
+  <!-- Flatpickr -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <!-- Flowbite -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.css">
 </head>
 <body>
 
-  <!-- Header -->
-  <header class="header">
-    <div class="container">
-      <a href="/" class="header__back">&larr; 대시보드</a>
-      <h1 class="header__title">전체 생성 이력</h1>
-      <span></span>
-    </div>
-  </header>
+  <div class="shell">
+    <!-- LNB -->
+    <aside class="lnb">
+      <a href="/" class="lnb__brand">KR EC Trend</a>
+      <nav class="lnb__nav">
+        <a href="/generate" class="lnb__item">
+          <span class="lnb__label">기사 생성</span>
+        </a>
+        <a href="/notices" class="lnb__item">
+          <span class="lnb__label">공지사항</span>
+        </a>
+        <a href="/log" class="lnb__item lnb__item--active">
+          <span class="lnb__label">이력</span>
+        </a>
+      </nav>
+    </aside>
 
-  <main class="container">
+    <!-- Main -->
+    <div class="shell__main">
+      <header class="header">
+        <div class="container">
+          <h1 class="header__title">전체 생성 이력</h1>
+        </div>
+      </header>
 
-    <!-- Filters -->
+      <main class="container">
+
+    <!-- COS 검색 필터 (테이블 레이아웃) -->
     <section class="section">
-      <form id="filter-form" class="filters" onsubmit="return false;">
-        <div class="filter-group">
-          <label for="date-from">시작일</label>
-          <input type="date" id="date-from" name="date_from">
-        </div>
-        <div class="filter-group">
-          <label for="date-to">종료일</label>
-          <input type="date" id="date-to" name="date_to">
-        </div>
-        <div class="filter-group">
-          <label for="search-text">검색어</label>
-          <input type="text" id="search-text" name="search" placeholder="키워드 검색...">
-        </div>
-        <div class="filter-group" style="justify-content:flex-end;">
-          <label>&nbsp;</label>
-          <button type="submit" id="search-btn" class="btn btn--primary btn--sm">검색</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- History Table -->
-    <section class="section">
-      <div id="log-table-wrap" class="table-wrap">
-        <table class="table">
-          <thead>
+      <form id="filter-form" onsubmit="return false;">
+        <table class="cos-filter-table">
+          <tbody>
             <tr>
-              <th>기간</th>
-              <th>기사수</th>
-              <th>상태</th>
-              <th>생성일</th>
-              <th></th>
+              <td class="cos-filter-label">기간</td>
+              <td class="cos-filter-input" colspan="3">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <input type="text" id="date-from" placeholder="시작일" style="width:150px;">
+                  <span style="color:var(--color-text-muted);">~</span>
+                  <input type="text" id="date-to" placeholder="종료일" style="width:150px;">
+                </div>
+              </td>
             </tr>
-          </thead>
-          <tbody id="log-tbody">
             <tr>
-              <td colspan="5" class="text-center" style="padding:32px">
-                <div class="spinner"></div>
+              <td class="cos-filter-label">검색어</td>
+              <td class="cos-filter-input" colspan="3">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <input type="text" id="search-text" placeholder="키워드 검색..." style="flex:1; max-width:360px;">
+                  <div class="cos-filter-actions">
+                    <button type="submit" id="search-btn" class="btn btn--primary btn--sm">검색</button>
+                    <button type="button" id="reset-btn" class="btn btn--secondary btn--sm">초기화</button>
+                  </div>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <!-- Pagination -->
-      <div id="pagination" class="pagination"></div>
+      </form>
     </section>
 
-  </main>
+    <!-- TOAST UI Grid 이력 테이블 -->
+    <section class="section">
+      <div id="log-grid"></div>
+      <!-- Custom Pagination -->
+      <div id="custom-pagination" class="custom-pagination"></div>
+    </section>
+
+      </main>
+    </div>
+  </div>
 
   <!-- Markdown 조회 Modal -->
   <div id="md-modal" class="overlay hidden">
     <div class="modal">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <div class="modal__header" style="display:flex; align-items:center; justify-content:space-between; margin: 10px;">
         <h3 class="modal__title" style="margin:0;">마크다운 미리보기</h3>
         <button id="md-modal-close" class="btn btn--secondary btn--sm">닫기</button>
       </div>
-      <div id="md-modal-content" class="md-preview">
-        불러오는 중...
+      <div class="modal__content">
+        <div class="tabs" style="margin-top: 16px;">
+          <button class="modal-tab-btn active" data-modal-tab="modal-tab-md">마크다운</button>
+          <button class="modal-tab-btn" data-modal-tab="modal-tab-images">원본 이미지</button>
+        </div>
+        <div id="modal-tab-md" class="modal-tab-panel active">
+          <div id="md-modal-content" class="md-preview">
+            불러오는 중...
+          </div>
+        </div>
+        <div id="modal-tab-images" class="modal-tab-panel">
+          <div class="images-toolbar">
+            <span id="modal-images-count"></span>
+            <div class="images-toolbar__spacer"></div>
+            <button id="btn-modal-download-zip" class="btn btn--primary btn--sm">전체 다운로드 (ZIP)</button>
+          </div>
+          <div id="modal-images-grid" class="images-grid"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/static/js/api.js"></script>
-  <script src="/static/js/log.js"></script>
+  <script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.js"></script>
+  <script src="/static/js/api.js?v=4"></script>
+  <script src="/static/js/log.js?v=4"></script>
 </body>
 </html>

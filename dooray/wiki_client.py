@@ -181,8 +181,11 @@ class DoorayWikiClient:
 
         # Step 2: Upload file to redirect URL (multipart, no JSON content-type)
         filename = file_path_obj.name
+        import mimetypes
+        mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
         with open(file_path_obj, "rb") as f:
-            files = {"file": (filename, f)}
+            files = {"file": (filename, f, mime_type)}
             data = {"type": "general"}
 
             # Use a separate request without the JSON Content-Type header

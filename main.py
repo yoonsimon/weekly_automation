@@ -69,8 +69,8 @@ def _print_picks_summary(picks: dict[str, list[ScoredArticle]]) -> None:
 
     for label, key in [
         ("🏆 메인 톱픽", "main"),
-        ("🛒 오픈마켓/소셜커머스", "market"),
         ("💡 기타 커머스/IT 동향", "other"),
+        ("🛒 오픈마켓/소셜커머스", "market"),
     ]:
         articles = picks.get(key, [])
         print(f"\n{label}:")
@@ -122,7 +122,7 @@ def run_articles_workflow(
     picks = select_weekly_picks(all_articles, config)
     _print_picks_summary(picks)
 
-    all_picks = picks["main"] + picks["market"] + picks["other"]
+    all_picks = picks["main"] + picks["other"] + picks["market"]
     if not all_picks:
         logger.warning("선정된 기사가 없습니다")
         return
@@ -150,7 +150,7 @@ def run_articles_workflow(
     scraped_texts: dict[str, str] = {}
     image_refs: dict[str, str] = {}
 
-    for article in all_picks:
+    for idx, article in enumerate(all_picks, 1):
         try:
             scraped = scrape_article(
                 article.link, article.title,
@@ -160,8 +160,12 @@ def run_articles_workflow(
             logger.info("크롤링 완료: %s (%d자)", article.title, len(scraped.text))
 
             if scraped.image_paths:
-                filename = os.path.basename(scraped.image_paths[0])
-                image_refs[article.link] = f"![img](images/{filename})"
+                old_path = scraped.image_paths[0]
+                ext = os.path.splitext(old_path)[1]  # e.g. ".jpg"
+                new_filename = f"{idx}{ext}"
+                new_path = os.path.join(images_dir, new_filename)
+                os.rename(old_path, new_path)
+                image_refs[article.link] = f"![img](images/{new_filename})"
 
         except Exception:
             logger.exception("크롤링 실패: %s (%s)", article.title, article.link)

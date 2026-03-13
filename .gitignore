@@ -13,6 +13,9 @@ __pycache__/
 # Generated output
 output/
 
+# Design specs
+design/
+
 # IDE / OS
 .vscode/
 .idea/

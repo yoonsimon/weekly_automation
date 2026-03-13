@@ -9,6 +9,7 @@ used by Google News since 2024.
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -61,25 +62,38 @@ def resolve_google_urls(articles: list[NewsArticle]) -> None:
 
     Uses googlenewsdecoder for the opaque article IDs in newer Google News URLs.
     Only processes articles whose links contain 'news.google.com'.
+    Retries once on failure (total 2 attempts per URL).
     """
     from googlenewsdecoder import gnewsdecoder
 
     for article in articles:
         if "news.google.com" not in article.link:
             continue
-        try:
-            result = gnewsdecoder(article.link, interval=0.5)
-            if result.get("status"):
-                article.link = result["decoded_url"]
-                logger.info("URL 해석 성공: %s -> %s", article.title[:30], article.link[:80])
-            else:
-                logger.warning(
-                    "URL 해석 실패: %s (%s)",
-                    article.title[:30],
-                    result.get("message", "unknown"),
-                )
-        except Exception:
-            logger.exception("URL 해석 오류: %s", article.title[:30])
+
+        resolved = False
+        for attempt in range(2):
+            try:
+                result = gnewsdecoder(article.link, interval=0.5)
+                if result.get("status"):
+                    article.link = result["decoded_url"]
+                    logger.info("URL 해석 성공: %s -> %s", article.title[:30], article.link[:80])
+                    resolved = True
+                    break
+                else:
+                    logger.warning(
+                        "URL 해석 실패 (시도 %d/2): %s (%s)",
+                        attempt + 1,
+                        article.title[:30],
+                        result.get("message", "unknown"),
+                    )
+            except Exception:
+                logger.warning("URL 해석 오류 (시도 %d/2): %s", attempt + 1, article.title[:30])
+
+            if attempt == 0:
+                time.sleep(0.5)
+
+        if not resolved:
+            logger.warning("URL 해석 최종 실패 (2회 시도): %s", article.title[:30])
 
 
 def collect_news(config: dict) -> list[NewsArticle]:
