@@ -1993,6 +1993,9 @@ main.container {
   transition: box-shadow var(--transition), transform var(--transition);
   position: relative;
   overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 
 .quick-status__card::before {
