@@ -1,6 +1,12 @@
 """History API router."""
 
+import io
+import os
+import re
+import zipfile
+
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from web.models import HistoryEntry, HistoryListResponse, MarkdownResponse
 from web.services import history_service
@@ -54,3 +60,36 @@ async def get_markdown(entry_id: str):
     if content is None:
         raise HTTPException(status_code=404, detail="마크다운 파일을 찾을 수 없습니다")
     return MarkdownResponse(content=content)
+
+
+@router.get("/{entry_id}/images/zip")
+async def download_history_images_zip(entry_id: str):
+    """히스토리 항목의 이미지를 ZIP으로 다운로드합니다."""
+    content = history_service.get_markdown_content(entry_id)
+    if content is None:
+        raise HTTPException(status_code=404, detail="마크다운 파일을 찾을 수 없습니다")
+
+    # Extract image filenames from markdown: ![img](images/filename)
+    image_refs = re.findall(r'!\[.*?\]\((images/[^)]+)\)', content)
+    output_dir = history_service._output_dir()
+
+    image_files: list[str] = []
+    for ref in image_refs:
+        filepath = os.path.join(output_dir, ref)
+        if os.path.isfile(filepath):
+            image_files.append(filepath)
+
+    if not image_files:
+        raise HTTPException(status_code=404, detail="다운로드할 이미지가 없습니다")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for filepath in image_files:
+            zf.write(filepath, os.path.basename(filepath))
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=images.zip"},
+    )

@@ -3,24 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>기사 생성 - 주간 뉴스 대시보드</title>
-  <link rel="stylesheet" href="/static/css/style.css">
+  <title>기사 생성 - KR EC Trend</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=8">
+  <!-- TOAST UI Grid -->
+  <link rel="stylesheet" href="https://uicdn.toast.com/grid/latest/tui-grid.css">
+  <!-- Flatpickr -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <!-- Flowbite -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.css">
 </head>
 <body>
 
-  <!-- Header -->
-  <header class="header">
-    <div class="container">
-      <a href="/" class="header__back">&larr; 대시보드</a>
-      <h1 class="header__title">기사 생성</h1>
-      <span></span>
-    </div>
-  </header>
+  <div class="shell">
+    <!-- LNB -->
+    <aside class="lnb">
+      <a href="/" class="lnb__brand">KR EC Trend</a>
+      <nav class="lnb__nav">
+        <a href="/generate" class="lnb__item lnb__item--active">
+          <span class="lnb__label">기사 생성</span>
+        </a>
+        <a href="/notices" class="lnb__item">
+          <span class="lnb__label">공지사항</span>
+        </a>
+        <a href="/log" class="lnb__item">
+          <span class="lnb__label">이력</span>
+        </a>
+      </nav>
+    </aside>
 
-  <main class="container">
+    <!-- Main -->
+    <div class="shell__main">
+      <header class="header">
+        <div class="container">
+          <h1 class="header__title">기사 생성</h1>
+        </div>
+      </header>
+
+      <main class="container">
+
+    <!-- State 0: Idle -->
+    <section id="state-idle" class="section">
+      <div class="page-intro">
+        <h2 id="idle-week-title" class="page-intro__title"></h2>
+        <p class="page-intro__desc">수집부터 기사 카드 생성까지 자동으로 진행합니다</p>
+
+        <div class="mini-stepper">
+          <div class="mini-stepper__step">
+            <div class="mini-stepper__icon">1</div>
+            <div class="mini-stepper__label">뉴스 수집</div>
+          </div>
+          <div class="mini-stepper__connector"></div>
+          <div class="mini-stepper__step">
+            <div class="mini-stepper__icon">2</div>
+            <div class="mini-stepper__label">분석/선별</div>
+          </div>
+          <div class="mini-stepper__connector"></div>
+          <div class="mini-stepper__step">
+            <div class="mini-stepper__icon">3</div>
+            <div class="mini-stepper__label">본문 스크래핑</div>
+          </div>
+          <div class="mini-stepper__connector"></div>
+          <div class="mini-stepper__step">
+            <div class="mini-stepper__icon">4</div>
+            <div class="mini-stepper__label">기사 생성</div>
+          </div>
+        </div>
+
+        <button id="btn-start" class="btn btn--primary btn--lg">생성 시작하기</button>
+        <div id="idle-last-info" class="page-intro__last hidden"></div>
+      </div>
+    </section>
 
     <!-- State 1: Progress -->
-    <section id="state-progress" class="section">
+    <section id="state-progress" class="section hidden">
       <div class="card">
         <div class="progress-container">
           <!-- Stepper -->
@@ -68,6 +123,7 @@
       <div class="tabs">
         <button class="tab-btn active" data-tab="tab-cards">기사 카드</button>
         <button class="tab-btn" data-tab="tab-preview">MD 미리보기</button>
+        <button class="tab-btn" data-tab="tab-images">원본 이미지</button>
       </div>
 
       <!-- Tab 1: Article Cards -->
@@ -84,27 +140,10 @@
                 <option value="score-asc">점수 낮은순</option>
                 <option value="date-desc">최신순</option>
               </select>
-              <button class="btn btn--secondary btn--sm select-all-btn" data-category="main">전체 선택</button>
+              <button class="btn btn--outline btn--sm select-all-btn" data-category="main">전체 선택</button>
             </div>
           </div>
           <div id="cards-main"></div>
-        </div>
-
-        <!-- 오픈마켓/소셜커머스 -->
-        <div class="category-group">
-          <div class="category-group__header">
-            <div class="category-group__title">오픈마켓/소셜커머스 <span id="stats-market"></span></div>
-            <div class="category-group__actions">
-              <select class="sort-select" data-category="market">
-                <option value="default">기본순</option>
-                <option value="score-desc">점수 높은순</option>
-                <option value="score-asc">점수 낮은순</option>
-                <option value="date-desc">최신순</option>
-              </select>
-              <button class="btn btn--secondary btn--sm select-all-btn" data-category="market">전체 선택</button>
-            </div>
-          </div>
-          <div id="cards-market"></div>
         </div>
 
         <!-- 기타 커머스/IT 동향 -->
@@ -118,10 +157,27 @@
                 <option value="score-asc">점수 낮은순</option>
                 <option value="date-desc">최신순</option>
               </select>
-              <button class="btn btn--secondary btn--sm select-all-btn" data-category="other">전체 선택</button>
+              <button class="btn btn--outline btn--sm select-all-btn" data-category="other">전체 선택</button>
             </div>
           </div>
           <div id="cards-other"></div>
+        </div>
+
+        <!-- 오픈마켓/소셜커머스 -->
+        <div class="category-group">
+          <div class="category-group__header">
+            <div class="category-group__title">오픈마켓/소셜커머스 <span id="stats-market"></span></div>
+            <div class="category-group__actions">
+              <select class="sort-select" data-category="market">
+                <option value="default">기본순</option>
+                <option value="score-desc">점수 높은순</option>
+                <option value="score-asc">점수 낮은순</option>
+                <option value="date-desc">최신순</option>
+              </select>
+              <button class="btn btn--outline btn--sm select-all-btn" data-category="market">전체 선택</button>
+            </div>
+          </div>
+          <div id="cards-market"></div>
         </div>
 
       </div>
@@ -131,6 +187,16 @@
         <div id="md-preview-content" class="md-preview">
           <div class="text-center" style="padding:32px"><div class="spinner"></div></div>
         </div>
+      </div>
+
+      <!-- Tab 3: Original Images -->
+      <div id="tab-images" class="tab-panel">
+        <div class="images-toolbar">
+          <span id="images-count"></span>
+          <div class="images-toolbar__spacer"></div>
+          <button id="btn-download-zip" class="btn btn--primary btn--sm">전체 다운로드 (ZIP)</button>
+        </div>
+        <div id="images-grid" class="images-grid"></div>
       </div>
 
       <!-- Action Bar -->
@@ -146,20 +212,26 @@
 
     <!-- State 3: Complete -->
     <section id="state-complete" class="section hidden">
-      <div class="card card--hero">
-        <h2 style="font-size:1.15rem; font-weight:700; margin-bottom:8px;">완료</h2>
-        <p id="complete-message">업로드가 완료되었습니다.</p>
-        <a href="/" class="btn btn--primary" style="margin-top:12px;">대시보드로 돌아가기</a>
+      <div class="page-intro">
+        <h2 class="page-intro__title">업로드 완료</h2>
+        <p id="complete-message" class="page-intro__desc">업로드가 완료되었습니다.</p>
+        <a href="/" class="btn btn--primary btn--lg">대시보드로 돌아가기</a>
       </div>
     </section>
 
-  </main>
+      </main>
+    </div>
+  </div>
 
   <!-- Replacement Modal -->
   <div id="replace-modal" class="overlay hidden">
     <div class="modal">
-      <h3 class="modal__title">기사 교체 비교</h3>
-      <div id="replace-modal-body"></div>
+      <div class="modal__header">
+        <h3 class="modal__title">기사 교체 비교</h3>
+      </div>
+      <div class="modal__content">
+        <div id="replace-modal-body"></div>
+      </div>
       <div class="modal__footer">
         <button id="btn-replace-cancel" class="btn btn--secondary btn--sm">취소</button>
         <button id="btn-replace-retry" class="btn btn--secondary btn--sm">다시 교체</button>
@@ -168,8 +240,52 @@
     </div>
   </div>
 
+  <!-- Wiki URL 입력 Modal -->
+  <div id="wiki-url-modal" class="overlay hidden">
+    <div class="modal" style="max-width:540px;">
+      <div class="modal__header">
+        <h3 class="modal__title">업로드 위치 선택</h3>
+      </div>
+      <div class="modal__content" style="padding:16px 24px;">
+
+        <!-- 이전에 사용한 페이지 목록 -->
+        <div id="recent-pages-section" class="hidden">
+          <p style="margin-bottom:8px; font-size:13px; color:var(--color-text-secondary); font-weight:600;">최근 사용한 위키 페이지</p>
+          <div id="recent-pages-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;"></div>
+        </div>
+
+        <!-- 새 URL 입력 -->
+        <p style="margin-bottom:8px; font-size:13px; color:var(--color-text-secondary); font-weight:600;">새 위키 페이지 URL</p>
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <input type="text" id="wiki-url-input"
+                 placeholder="https://nhnent.dooray.com/wiki/..."
+                 style="flex:1; padding:10px 12px; border:1px solid var(--color-border); border-radius:8px; font-size:14px;">
+          <button id="btn-wiki-url-verify" class="btn btn--secondary btn--sm" style="white-space:nowrap; padding:10px 14px;">확인</button>
+        </div>
+        <p id="wiki-url-error" class="hidden" style="margin-top:8px; color:var(--color-danger); font-size:13px;"></p>
+
+        <!-- 확인된 페이지 정보 -->
+        <div id="wiki-url-resolved" class="hidden" style="margin-top:12px; padding:12px; background:var(--color-primary-light); border-radius:8px; border:1px solid var(--color-indigo-100);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--color-primary); font-weight:600;" id="resolved-page-name"></span>
+          </div>
+          <div style="margin-top:4px; font-size:12px; color:var(--color-text-muted);" id="resolved-page-id"></div>
+        </div>
+
+      </div>
+      <div class="modal__footer">
+        <button id="btn-wiki-url-cancel" class="btn btn--secondary btn--sm">취소</button>
+        <button id="btn-wiki-url-upload" class="btn btn--primary btn--sm" disabled>업로드</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/static/js/api.js"></script>
-  <script src="/static/js/generate.js"></script>
+  <script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.js"></script>
+  <script src="/static/js/api.js?v=4"></script>
+  <script src="/static/js/generate.js?v=5"></script>
 </body>
 </html>

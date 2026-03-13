@@ -5,8 +5,11 @@ start -> poll/stream status -> view articles -> replace -> preview -> confirm.
 """
 
 import asyncio
+import io
 import json
 import logging
+import os
+import zipfile
 from datetime import datetime, timezone, timedelta
 
 import markdown as md
@@ -189,9 +192,14 @@ async def replace_articles(session_id: str, req: ReplaceRequest):
     if session.status != "ready":
         raise HTTPException(status_code=409, detail="기사 생성이 완료된 후에만 교체할 수 있습니다")
 
-    results = article_service.replace_articles(session_id, req.article_indices)
+    # Run blocking I/O (RSS collect, URL resolve, scrape) in thread pool
+    results = await asyncio.get_event_loop().run_in_executor(
+        None, article_service.replace_articles, session_id, req.article_indices
+    )
     if results is None:
         raise HTTPException(status_code=400, detail="교체에 실패했습니다")
+    if len(results) == 0:
+        raise HTTPException(status_code=400, detail="대체할 기사를 찾을 수 없습니다. 다른 기사를 선택해주세요.")
 
     replacements = []
     for r in results:
@@ -225,7 +233,42 @@ async def approve_replacement(session_id: str, req: ReplaceApproveRequest):
     if not ok:
         raise HTTPException(status_code=400, detail="교체 승인/취소에 실패했습니다")
 
+    # For retry, re-run the replacement and return new candidates
+    if req.action == "retry":
+        results = await asyncio.get_event_loop().run_in_executor(
+            None, article_service.replace_articles, session_id, req.article_indices
+        )
+        if results is None or len(results) == 0:
+            raise HTTPException(status_code=400, detail="대체할 기사를 찾을 수 없습니다")
+
+        replacements = []
+        for r in results:
+            from web.models import ArticleCard
+            replacements.append(ReplacementDetail(
+                index=r["index"],
+                before=ArticleCard(**r["before"]),
+                after=ArticleCard(**r["after"]),
+                excluded_keyword=r["excluded_keyword"],
+                replacement_count=r["replacement_count"],
+            ))
+        return ReplaceResponse(replacements=replacements, status="pending_approval")
+
     return {"status": "ok", "action": req.action, "indices": req.article_indices}
+
+
+# ------------------------------------------------------------------
+# GET /{session_id}/prefetch-status
+# ------------------------------------------------------------------
+
+@router.get("/{session_id}/prefetch-status")
+async def prefetch_status(session_id: str):
+    """각 슬롯의 프리페치 준비 상태를 반환합니다."""
+    session = article_service.session_manager.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+
+    ready_slots = list(session.prefetched.keys())
+    return {"session_id": session_id, "prefetched_slots": ready_slots}
 
 
 # ------------------------------------------------------------------
@@ -267,6 +310,44 @@ async def preview(session_id: str):
 
     html = md.markdown(raw, extensions=["tables"])
     return PreviewResponse(markdown_raw=raw, markdown_html=html)
+
+
+# ------------------------------------------------------------------
+# GET /{session_id}/images/zip
+# ------------------------------------------------------------------
+
+@router.get("/{session_id}/images/zip")
+async def download_images_zip(session_id: str):
+    """모든 기사 이미지를 ZIP으로 다운로드합니다."""
+    session = article_service.session_manager.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+    if session.status != "ready":
+        raise HTTPException(status_code=409, detail="기사 생성이 완료된 후에만 다운로드할 수 있습니다")
+
+    # Collect all local image paths from scraped articles
+    image_files: list[str] = []
+    for scraped in session.scraped_articles.values():
+        if scraped.image_paths:
+            for p in scraped.image_paths:
+                if os.path.isfile(p):
+                    image_files.append(p)
+
+    if not image_files:
+        raise HTTPException(status_code=404, detail="다운로드할 이미지가 없습니다")
+
+    # Build in-memory ZIP
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for filepath in image_files:
+            zf.write(filepath, os.path.basename(filepath))
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=images.zip"},
+    )
 
 
 # ------------------------------------------------------------------

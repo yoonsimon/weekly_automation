@@ -171,6 +171,13 @@ notices:
     - name: "카페24-기능"
       url: "https://shopnotice.cafe24.com/?bbs_no=5"
       encoding: "utf-8"
+    - name: "카페24-업데이트"
+      url: "https://shopnotice.cafe24.com/?bbs_no=12"
+      encoding: "utf-8"
+    - name: "카페24-개발자센터"
+      url: "https://developers.cafe24.com/api/changelog/rest/list?"
+      encoding: "utf-8"
     - name: "메이크샵"
       url: "https://www.makeshop.co.kr/newmakeshop/home/notice_list.html"
       encoding: "cp949"
+      lookahead_days: 7

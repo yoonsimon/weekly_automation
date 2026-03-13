@@ -19,6 +19,14 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
+
+class ScrapeError(Exception):
+    """Scraping error with a machine-readable code."""
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -99,6 +107,7 @@ class ScrapedArticle:
     text: str
     image_url: str = ""
     image_paths: list[str] = field(default_factory=list)
+    error_code: str = ""
 
 
 def _extract_og(soup: BeautifulSoup, prop: str) -> str:
@@ -385,18 +394,35 @@ def _detect_encoding(resp: requests.Response) -> str:
 
 
 def _fetch_page(url: str) -> tuple[str, str]:
-    """Fetch a page with retries. Returns (html_text, final_url).
-
-    Raises Exception if all retries fail.
-    """
+    """Fetch a page with retries. Returns (html_text, final_url)."""
     last_error = None
     for attempt in range(MAX_RETRIES + 1):
         try:
             resp = requests.get(url, headers=HEADERS, timeout=HTTP_TIMEOUT, allow_redirects=True)
+            if resp.status_code in (401, 403):
+                raise ScrapeError("blocked", f"접근 차단 ({resp.status_code})")
+            if resp.status_code == 404:
+                raise ScrapeError("not_found", f"페이지 없음 (404)")
+            if 400 <= resp.status_code < 500:
+                raise ScrapeError("blocked", f"클라이언트 오류 ({resp.status_code})")
+            if resp.status_code >= 500:
+                raise ScrapeError("server_error", f"서버 오류 ({resp.status_code})")
             resp.encoding = _detect_encoding(resp)
             return resp.text, resp.url
+        except ScrapeError:
+            raise  # Don't retry client errors
+        except requests.Timeout as e:
+            last_error = ScrapeError("timeout", f"응답 시간 초과")
+            if attempt < MAX_RETRIES:
+                logger.debug("페이지 요청 재시도 (%d/%d): %s", attempt + 1, MAX_RETRIES, url[:80])
+                time.sleep(RETRY_DELAY)
+        except requests.ConnectionError as e:
+            last_error = ScrapeError("network", f"네트워크 오류")
+            if attempt < MAX_RETRIES:
+                logger.debug("페이지 요청 재시도 (%d/%d): %s", attempt + 1, MAX_RETRIES, url[:80])
+                time.sleep(RETRY_DELAY)
         except Exception as e:
-            last_error = e
+            last_error = ScrapeError("network", str(e))
             if attempt < MAX_RETRIES:
                 logger.debug("페이지 요청 재시도 (%d/%d): %s", attempt + 1, MAX_RETRIES, url[:80])
                 time.sleep(RETRY_DELAY)
@@ -424,9 +450,12 @@ def scrape_article(
         html, final_url = _fetch_page(url)
         if final_url != url:
             url = final_url
+    except ScrapeError as e:
+        logger.warning("페이지 다운로드 실패 [%s]: %s - %s", e.code, url[:80], e)
+        return ScrapedArticle(title=title, url=url, text="(본문을 추출할 수 없습니다)", error_code=e.code)
     except Exception:
         logger.exception("페이지 다운로드 실패 (%d회 시도): %s", MAX_RETRIES + 1, url)
-        return ScrapedArticle(title=title, url=url, text="(본문을 추출할 수 없습니다)")
+        return ScrapedArticle(title=title, url=url, text="(본문을 추출할 수 없습니다)", error_code="network")
 
     soup = BeautifulSoup(html, "html.parser")
 
@@ -452,9 +481,16 @@ def scrape_article(
         if desc and len(desc) > len(text):
             text = desc
 
+    error_code = ""
     if not text:
         text = "(본문을 추출할 수 없습니다)"
+        error_code = "parse_failed"
         logger.warning("Could not extract text from: %s", url)
+    elif len(text) < 200:
+        # Check for paywall indicators
+        paywall_markers = ["유료 회원", "프리미엄 서비스", "구독하시면", "구독 후", "전자판 서비스"]
+        if any(marker in text for marker in paywall_markers):
+            error_code = "paywall"
 
     # Extract image candidates and try downloading in priority order
     image_candidates = _extract_image_candidates(soup, url)
@@ -485,6 +521,7 @@ def scrape_article(
         text=text,
         image_url=image_url,
         image_paths=image_paths,
+        error_code=error_code,
     )
 
 

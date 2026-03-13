@@ -98,11 +98,38 @@ def _bootstrap_history() -> dict:
 
 
 def _extract_week_range(filename: str) -> list[str]:
-    """Try to extract [monday_iso, sunday_iso] from md filename."""
+    """Try to extract week info from md filename.
+
+    Supports both formats:
+    - New: 주간_기사_모음_3월_1주차.md → derive dates from label
+    - Legacy: 주간_기사_모음_2026-03-02_2026-03-08.md → extract dates directly
+    """
     import re
-    m = re.findall(r"(\d{4}-\d{2}-\d{2})", filename)
-    if len(m) >= 2:
-        return [m[0], m[1]]
+    from datetime import date, timedelta
+
+    # New format: n월_m주차
+    m_new = re.search(r"(\d{1,2})월_(\d)주차", filename)
+    if m_new:
+        month = int(m_new.group(1))
+        week = int(m_new.group(2))
+        # Approximate: find the Monday of that week in the current/recent year
+        year = date.today().year
+        # First day of that month + offset to the right week's Monday
+        first_of_month = date(year, month, 1)
+        # Day 1 + (week-1)*7 gives approximate target day
+        target_day = 1 + (week - 1) * 7
+        if target_day > 28:
+            target_day = min(target_day, 28)
+        approx = date(year, month, target_day)
+        monday = approx - timedelta(days=approx.weekday())
+        sunday = monday + timedelta(days=6)
+        return [monday.isoformat(), sunday.isoformat()]
+
+    # Legacy format: YYYY-MM-DD dates
+    m_legacy = re.findall(r"(\d{4}-\d{2}-\d{2})", filename)
+    if len(m_legacy) >= 2:
+        return [m_legacy[0], m_legacy[1]]
+
     return ["", ""]
 
 

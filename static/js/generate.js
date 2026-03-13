@@ -20,9 +20,11 @@
   // DOM refs
   // ------------------------------------------------------------------
 
+  const stateIdle = document.getElementById('state-idle');
   const stateProgress = document.getElementById('state-progress');
   const stateArticles = document.getElementById('state-articles');
   const stateComplete = document.getElementById('state-complete');
+  const btnStart = document.getElementById('btn-start');
 
   const progressBar = document.getElementById('progress-bar');
   const progressStep = document.getElementById('progress-step');
@@ -50,6 +52,11 @@
 
   const completeMessage = document.getElementById('complete-message');
 
+  // Images tab
+  const imagesGrid = document.getElementById('images-grid');
+  const imagesCount = document.getElementById('images-count');
+  const btnDownloadZip = document.getElementById('btn-download-zip');
+
   // Tab buttons
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -58,8 +65,9 @@
       btn.classList.add('active');
       document.getElementById(btn.dataset.tab).classList.add('active');
 
-      // Lazy load preview
+      // Lazy load preview / images
       if (btn.dataset.tab === 'tab-preview') loadPreview();
+      if (btn.dataset.tab === 'tab-images') loadImages();
     });
   });
 
@@ -68,13 +76,14 @@
   // ------------------------------------------------------------------
 
   let sessionId = null;
-  let articles = { main: [], market: [], other: [] };
-  let originalArticles = { main: [], market: [], other: [] }; // preserve original order
+  let articles = { main: [], other: [], market: [] };
+  let originalArticles = { main: [], other: [], market: [] }; // preserve original order
   let selectedIndices = new Set();
   let historyId = null;          // set after confirm
   let pendingReplacements = [];  // replacement details during modal
 
   function showState(name) {
+    stateIdle.classList.toggle('hidden', name !== 'idle');
     stateProgress.classList.toggle('hidden', name !== 'progress');
     stateArticles.classList.toggle('hidden', name !== 'articles');
     stateComplete.classList.toggle('hidden', name !== 'complete');
@@ -243,7 +252,7 @@
 
     try {
       const data = await apiGet(`/api/generate/${sessionId}/articles`);
-      articles = data.articles || { main: [], market: [], other: [] };
+      articles = data.articles || { main: [], other: [], market: [] };
       // Deep copy for original order preservation
       originalArticles = {
         main: [...(articles.main || [])],
@@ -262,8 +271,8 @@
     updateSelectedCount();
 
     cardsMain.innerHTML = renderCategoryCards(articles.main || []);
-    cardsMarket.innerHTML = renderCategoryCards(articles.market || []);
     cardsOther.innerHTML = renderCategoryCards(articles.other || []);
+    cardsMarket.innerHTML = renderCategoryCards(articles.market || []);
 
     bindCardEvents();
     updateCategoryStats();
@@ -277,9 +286,9 @@
     return list.map((a) => renderArticleCard(a)).join('');
   }
 
-  function scrapeStatusBadge(status) {
-    if (status === 'partial') return '<span class="scrape-badge scrape-badge--partial">&#9888; 본문 일부</span>';
-    if (status === 'failed') return '<span class="scrape-badge scrape-badge--failed">&#10007; 본문 실패</span>';
+  function scrapeStatusBadge(article) {
+    if (article.scrape_status === 'partial') return '<span class="scrape-badge scrape-badge--partial">&#9888; 본문 일부</span>';
+    if (article.scrape_status === 'failed') return '<span class="scrape-badge scrape-badge--failed" title="' + escapeHtml(article.scrape_error || '') + '">&#10007; ' + escapeHtml(article.scrape_error || '본문 실패') + '</span>';
     return '';
   }
 
@@ -300,7 +309,7 @@
             </div>
             <div class="article-card__meta">
               <span class="score-badge ${scoreClass}">${a.score}점</span>
-              ${scrapeStatusBadge(a.scrape_status)}
+              ${scrapeStatusBadge(a)}
               <span>${escapeHtml(a.source)}</span>
               <span>${escapeHtml(a.keyword)}</span>
               <span>${escapeHtml(a.date)}</span>
@@ -316,7 +325,7 @@
             ${imgTag}
             ${escapeHtml(a.body_full || a.body_preview || '')}
             <div class="body-edit-trigger">
-              <button class="btn btn--secondary btn--sm article-card__edit-btn" data-edit-index="${a.index}">본문 편집</button>
+              <button class="btn btn--outline btn--sm article-card__edit-btn" data-edit-index="${a.index}">본문 편집</button>
             </div>
           </div>
         </div>
@@ -392,7 +401,7 @@
   // ------------------------------------------------------------------
 
   function toggleSelectAll(category, btn) {
-    const containerMap = { main: cardsMain, market: cardsMarket, other: cardsOther };
+    const containerMap = { main: cardsMain, other: cardsOther, market: cardsMarket };
     const container = containerMap[category];
     if (!container) return;
 
@@ -448,7 +457,7 @@
   }
 
   function handleSort(category, sortBy) {
-    const containerMap = { main: cardsMain, market: cardsMarket, other: cardsOther };
+    const containerMap = { main: cardsMain, other: cardsOther, market: cardsMarket };
     const container = containerMap[category];
     if (!container) return;
 
@@ -558,7 +567,7 @@
       <textarea class="body-edit-textarea" id="edit-textarea-${index}" rows="12">${escapeHtml(currentText)}</textarea>
       <div class="body-edit-actions">
         <button class="btn btn--primary btn--sm body-edit-save" data-save-index="${index}">저장</button>
-        <button class="btn btn--secondary btn--sm body-edit-cancel" data-cancel-index="${index}">취소</button>
+        <button class="btn btn--outline btn--sm body-edit-cancel" data-cancel-index="${index}">취소</button>
       </div>
     `;
 
@@ -577,6 +586,7 @@
         article.body_full = newText;
         article.body_preview = newText.substring(0, 200);
         previewLoaded = false;
+        imagesLoaded = false;
         showToast('본문이 수정되었습니다.', 'success');
         // Re-render the body
         restoreBodyView(index, article);
@@ -603,7 +613,7 @@
       ${imgTag}
       ${escapeHtml(article.body_full || article.body_preview || '')}
       <div class="body-edit-trigger">
-        <button class="btn btn--secondary btn--sm article-card__edit-btn" data-edit-index="${index}">본문 편집</button>
+        <button class="btn btn--outline btn--sm article-card__edit-btn" data-edit-index="${index}">본문 편집</button>
       </div>
     `;
 
@@ -614,7 +624,7 @@
   }
 
   function findArticleByIndex(index) {
-    for (const cat of ['main', 'market', 'other']) {
+    for (const cat of ['main', 'other', 'market']) {
       const found = (articles[cat] || []).find((a) => a.index === index);
       if (found) return found;
     }
@@ -626,7 +636,7 @@
   // ------------------------------------------------------------------
 
   function updateCategoryStats() {
-    const categories = { main: articles.main || [], market: articles.market || [], other: articles.other || [] };
+    const categories = { main: articles.main || [], other: articles.other || [], market: articles.market || [] };
 
     for (const [key, list] of Object.entries(categories)) {
       const statsEl = document.getElementById('stats-' + key);
@@ -674,11 +684,94 @@
       } else if (data.markdown_raw) {
         mdPreviewContent.innerHTML = marked.parse(data.markdown_raw);
       }
+      // Replace rendered images with placeholder text
+      mdPreviewContent.querySelectorAll('img').forEach((img) => {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'md-preview__image-placeholder';
+        placeholder.textContent = '[이미지]';
+        img.replaceWith(placeholder);
+      });
       previewLoaded = true;
     } catch (err) {
       mdPreviewContent.innerHTML = `<p style="color:var(--color-danger);">미리보기를 불러올 수 없습니다: ${escapeHtml(err.message)}</p>`;
     }
   }
+
+  // ------------------------------------------------------------------
+  // Original Images (Tab 3)
+  // ------------------------------------------------------------------
+
+  let imagesLoaded = false;
+
+  function loadImages() {
+    if (imagesLoaded) return;
+
+    const allArticles = [
+      ...(articles.main || []),
+      ...(articles.other || []),
+      ...(articles.market || []),
+    ];
+    const withImages = allArticles.filter((a) => a.image_url || a.image_local);
+
+    imagesCount.textContent = `이미지 ${withImages.length}건`;
+
+    if (withImages.length === 0) {
+      imagesGrid.innerHTML = '<div class="empty-state"><div class="empty-state__text">이미지 없음</div></div>';
+      btnDownloadZip.disabled = true;
+      imagesLoaded = true;
+      return;
+    }
+
+    imagesGrid.innerHTML = withImages
+      .map((a) => {
+        const displaySrc = a.image_url ? escapeHtml(a.image_url) : `/output/${a.image_local}`;
+        const downloadSrc = a.image_local ? `/output/${a.image_local}` : '';
+        return `
+          <div class="image-card">
+            <img class="image-card__preview" src="${displaySrc}" alt="" loading="lazy"
+                 onerror="this.style.display='none'">
+            <div class="image-card__info">
+              <div class="image-card__title" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</div>
+              <div class="image-card__actions">
+                ${downloadSrc ? `<a href="${downloadSrc}" download class="btn btn--outline btn--sm">다운로드</a>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    imagesLoaded = true;
+  }
+
+  // ZIP download
+  btnDownloadZip && btnDownloadZip.addEventListener('click', async () => {
+    btnDownloadZip.disabled = true;
+    btnDownloadZip.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> 다운로드 중...';
+
+    try {
+      const res = await fetch(`/api/generate/${sessionId}/images/zip`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: '다운로드 실패' }));
+        throw new Error(err.detail || '다운로드 실패');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'images.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('이미지 ZIP 다운로드 완료', 'success');
+    } catch (err) {
+      showToast('ZIP 다운로드 실패: ' + err.message, 'error');
+    } finally {
+      btnDownloadZip.disabled = false;
+      btnDownloadZip.textContent = '전체 다운로드 (ZIP)';
+    }
+  });
 
   // ------------------------------------------------------------------
   // Replacement flow
@@ -691,6 +784,18 @@
     btnReplace.disabled = true;
     btnReplace.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> 교체 중...';
 
+    // Optimistic UI: show loading overlay on selected cards
+    indices.forEach((idx) => {
+      const card = document.querySelector(`.article-card[data-index="${idx}"]`);
+      if (card && !card.querySelector('.article-card__loading-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'article-card__loading-overlay';
+        overlay.innerHTML = '<span class="spinner" style="width:20px;height:20px;border-width:2px;"></span><span>교체 후보 검색 중...</span>';
+        card.style.position = 'relative';
+        card.appendChild(overlay);
+      }
+    });
+
     try {
       const data = await apiPost(`/api/generate/${sessionId}/replace`, {
         article_indices: indices,
@@ -700,6 +805,8 @@
     } catch (err) {
       showToast('기사 교체 실패: ' + err.message, 'error');
     } finally {
+      // Remove loading overlays
+      document.querySelectorAll('.article-card__loading-overlay').forEach((el) => el.remove());
       btnReplace.disabled = selectedIndices.size === 0;
       btnReplace.textContent = '선택 기사 교체';
     }
@@ -753,6 +860,7 @@
       replaceModal.classList.add('hidden');
       showToast('교체가 승인되었습니다.', 'success');
       previewLoaded = false;
+      imagesLoaded = false;
       await loadArticles();
     } catch (err) {
       showToast('승인 실패: ' + err.message, 'error');
@@ -816,8 +924,15 @@
       const data = await apiPost(`/api/generate/${sessionId}/confirm`);
       historyId = data.history_id;
       showToast(`확정 저장 완료 (${data.md_filename})`, 'success');
-      btnConfirm.textContent = '저장 완료';
       btnUpload.disabled = false;
+      // Confirmed state UX
+      btnConfirm.classList.add('btn--confirmed');
+      btnConfirm.innerHTML = '&#10003; 저장 완료';
+      btnUpload.classList.add('btn--pulse');
+      document.querySelector('.action-bar').classList.add('action-bar--confirmed');
+      // Disable all article checkboxes and replace button
+      document.querySelectorAll('.article-card__checkbox').forEach(cb => { cb.disabled = true; });
+      btnReplace.disabled = true;
     } catch (err) {
       showToast('저장 실패: ' + err.message, 'error');
       btnConfirm.disabled = false;
@@ -826,28 +941,58 @@
   });
 
   // ------------------------------------------------------------------
-  // Upload
+  // Upload — Wiki URL modal (shared module)
   // ------------------------------------------------------------------
 
-  btnUpload.addEventListener('click', async () => {
-    if (!historyId) {
-      showToast('먼저 확정 저장을 해주세요.', 'error');
-      return;
-    }
+  const wikiUrlModal = document.getElementById('wiki-url-modal');
 
+  const wikiModal = createWikiUrlModal({
+    modalEl: wikiUrlModal,
+    inputEl: document.getElementById('wiki-url-input'),
+    errorEl: document.getElementById('wiki-url-error'),
+    resolvedEl: document.getElementById('wiki-url-resolved'),
+    resolvedNameEl: document.getElementById('resolved-page-name'),
+    resolvedIdEl: document.getElementById('resolved-page-id'),
+    recentSectionEl: document.getElementById('recent-pages-section'),
+    recentListEl: document.getElementById('recent-pages-list'),
+    verifyBtnEl: document.getElementById('btn-wiki-url-verify'),
+    cancelBtnEl: document.getElementById('btn-wiki-url-cancel'),
+    uploadBtnEl: document.getElementById('btn-wiki-url-upload'),
+    onUpload: function (parentPageId, wikiId) {
+      doUpload(parentPageId, wikiId);
+    },
+  });
+
+  // 업로드 실행
+  async function doUpload(parentPageId, wikiId) {
+    wikiUrlModal.classList.add('hidden');
     btnUpload.disabled = true;
     btnUpload.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> 업로드 중...';
 
     try {
-      const data = await apiPost(`/api/upload/${historyId}`);
+      const body = parentPageId ? { parent_page_id: parentPageId, wiki_id: wikiId } : undefined;
+      const data = await apiPost(`/api/upload/${historyId}`, body);
       showToast('업로드 완료!', 'success');
-      completeMessage.textContent = `Dooray 페이지에 업로드되었습니다. (Page ID: ${data.dooray_page_id || '-'})`;
+      if (data.dooray_page_url) {
+        completeMessage.innerHTML = 'Dooray 위키에 업로드되었습니다. <a href="' + escapeHtml(data.dooray_page_url) + '" target="_blank" rel="noopener" style="color:var(--color-primary); text-decoration:underline;">페이지 바로가기 &rarr;</a>';
+      } else {
+        completeMessage.textContent = 'Dooray 페이지에 업로드되었습니다. (Page ID: ' + (data.dooray_page_id || '-') + ')';
+      }
       showState('complete');
     } catch (err) {
       showToast('업로드 실패: ' + err.message, 'error');
       btnUpload.disabled = false;
       btnUpload.textContent = '업로드';
     }
+  }
+
+  // 업로드 버튼 → 항상 모달 표시
+  btnUpload.addEventListener('click', () => {
+    if (!historyId) {
+      showToast('먼저 확정 저장을 해주세요.', 'error');
+      return;
+    }
+    wikiModal.show();
   });
 
   // ------------------------------------------------------------------
@@ -855,10 +1000,16 @@
   // ------------------------------------------------------------------
 
   document.addEventListener('keydown', (e) => {
-    // Escape -> close modal
-    if (e.key === 'Escape' && !replaceModal.classList.contains('hidden')) {
-      btnReplaceCancel.click();
-      return;
+    // Escape -> close modals
+    if (e.key === 'Escape') {
+      if (!wikiUrlModal.classList.contains('hidden')) {
+        wikiUrlModal.classList.add('hidden');
+        return;
+      }
+      if (!replaceModal.classList.contains('hidden')) {
+        btnReplaceCancel.click();
+        return;
+      }
     }
 
     // Ctrl+Enter -> confirm save
@@ -880,8 +1031,46 @@
   }
 
   // ------------------------------------------------------------------
+  // Idle state: week label + last generation info
+  // ------------------------------------------------------------------
+
+  function getCurrentWeekLabel() {
+    const today = new Date();
+    const day = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+    const weekOfMonth = Math.floor((monday.getDate() - 1) / 7) + 1;
+    return `${monday.getMonth() + 1}월 ${weekOfMonth}주차`;
+  }
+
+  const idleWeekTitle = document.getElementById('idle-week-title');
+  const idleLastInfo = document.getElementById('idle-last-info');
+
+  if (idleWeekTitle) {
+    idleWeekTitle.textContent = `${getCurrentWeekLabel()} 이커머스 뉴스`;
+  }
+
+  // Load last generation info
+  async function loadLastGenerationInfo() {
+    try {
+      const data = await apiGet('/api/history/recent');
+      const items = Array.isArray(data) ? data : (data.items || []);
+      if (items.length > 0) {
+        const last = items[0];
+        const label = formatWeekLabel(last.week_range);
+        idleLastInfo.textContent = `마지막 생성: ${label} · ${last.article_count}건 · ${last.status}`;
+        idleLastInfo.classList.remove('hidden');
+      }
+    } catch { /* silent */ }
+  }
+
+  loadLastGenerationInfo();
+
+  // ------------------------------------------------------------------
   // Init
   // ------------------------------------------------------------------
 
-  startGeneration();
+  btnStart.addEventListener('click', () => {
+    startGeneration();
+  });
 })();

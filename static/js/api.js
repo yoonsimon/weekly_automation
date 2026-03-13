@@ -215,3 +215,88 @@ function formatWeekRange(weekRange) {
   if (!weekRange || weekRange.length < 2) return '-';
   return `${formatDate(weekRange[0])} ~ ${formatDate(weekRange[1])}`;
 }
+
+/**
+ * 주차 레이블 생성 (n월 m주차)
+ * week_range의 Monday 기준으로 계산
+ */
+function formatWeekLabel(weekRange) {
+  if (!weekRange || weekRange.length < 2) return '-';
+  const monday = new Date(weekRange[0] + 'T00:00:00');
+  if (isNaN(monday.getTime())) return formatWeekRange(weekRange);
+  const weekOfMonth = Math.floor((monday.getDate() - 1) / 7) + 1;
+  return `${monday.getMonth() + 1}월 ${weekOfMonth}주차`;
+}
+
+/* ---------- Flatpickr 한국어 기본 설정 ---------- */
+if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.ko) {
+  flatpickr.localize(flatpickr.l10ns.ko);
+}
+
+/* ---------- TOAST UI Grid 공유 렌더러 ---------- */
+
+/** 상태 뱃지 렌더러 (dashboard, log 페이지용) */
+class StatusBadgeRenderer {
+  constructor(props) {
+    const el = document.createElement('span');
+    el.className = 'badge ' + statusBadgeClass(props.value);
+    el.textContent = props.value;
+    this.el = el;
+  }
+  getElement() { return this.el; }
+  render(props) {
+    this.el.className = 'badge ' + statusBadgeClass(props.value);
+    this.el.textContent = props.value;
+  }
+}
+
+/**
+ * 액션 버튼 렌더러 팩토리
+ * @param {string} label - 버튼 텍스트
+ * @param {function} onClick - 클릭 콜백 (rowKey, grid)
+ */
+function createActionButtonRenderer(label, onClick) {
+  return class ActionButtonRenderer {
+    constructor(props) {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn--outline btn--sm';
+      btn.textContent = label;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onClick(props.rowKey, props.grid);
+      });
+      this.el = btn;
+    }
+    getElement() { return this.el; }
+    render() {}
+  };
+}
+
+/** 공지 제목 링크 렌더러 (notices 페이지용) */
+class NoticeTitleRenderer {
+  constructor(props) {
+    const el = document.createElement('a');
+    const url = props.grid.getValue(props.rowKey, 'url');
+    el.href = url || '#';
+    el.target = '_blank';
+    el.rel = 'noopener';
+    el.textContent = props.value;
+    el.style.cssText = 'color: var(--color-primary); text-decoration: none;';
+    el.addEventListener('mouseover', () => { el.style.textDecoration = 'underline'; });
+    el.addEventListener('mouseout', () => { el.style.textDecoration = 'none'; });
+    this.el = el;
+  }
+  getElement() { return this.el; }
+  render(props) {
+    this.el.textContent = props.value;
+    const url = props.grid.getValue(props.rowKey, 'url');
+    this.el.href = url || '#';
+  }
+}
+
+/** HTML 이스케이프 (공용) */
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}

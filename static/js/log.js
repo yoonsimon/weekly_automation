@@ -1,5 +1,5 @@
 /**
- * log.js - 전체 이력 페이지 로직
+ * log.js - 전체 이력 페이지 로직 (TOAST UI Grid + Flatpickr)
  */
 
 (function () {
@@ -8,18 +8,71 @@
   const PER_PAGE = 10;
 
   const filterForm = document.getElementById('filter-form');
-  const dateFrom = document.getElementById('date-from');
-  const dateTo = document.getElementById('date-to');
   const searchText = document.getElementById('search-text');
-  const tbody = document.getElementById('log-tbody');
-  const paginationEl = document.getElementById('pagination');
+  const resetBtn = document.getElementById('reset-btn');
 
   const modal = document.getElementById('md-modal');
   const modalClose = document.getElementById('md-modal-close');
   const modalContent = document.getElementById('md-modal-content');
+  const modalImagesGrid = document.getElementById('modal-images-grid');
+  const modalImagesCount = document.getElementById('modal-images-count');
+  const btnModalDownloadZip = document.getElementById('btn-modal-download-zip');
 
   let currentPage = 1;
   let totalPages = 1;
+
+  // ------------------------------------------------------------------
+  // Flatpickr 초기화
+  // ------------------------------------------------------------------
+
+  const fpFrom = flatpickr('#date-from', {
+    dateFormat: 'Y-m-d',
+  });
+
+  const fpTo = flatpickr('#date-to', {
+    dateFormat: 'Y-m-d',
+  });
+
+  // ------------------------------------------------------------------
+  // TOAST UI Grid 초기화
+  // ------------------------------------------------------------------
+
+  const ViewButtonRenderer = createActionButtonRenderer('조회', function (rowKey, grid) {
+    const rowData = grid.getRow(rowKey);
+    if (rowData && rowData._id) {
+      openMarkdown(rowData._id);
+    }
+  });
+
+  const grid = new tui.Grid({
+    el: document.getElementById('log-grid'),
+    columns: [
+      { header: '기간', name: 'week_label', minWidth: 120 },
+      { header: '기사수', name: 'article_count_label', width: 100, align: 'center' },
+      {
+        header: '상태',
+        name: 'status',
+        width: 120,
+        align: 'center',
+        renderer: { type: StatusBadgeRenderer },
+      },
+      { header: '생성일', name: 'created_date', width: 150 },
+      {
+        header: '',
+        name: 'action',
+        width: 100,
+        align: 'center',
+        renderer: { type: ViewButtonRenderer },
+        sortable: false,
+      },
+    ],
+    data: [],
+    bodyHeight: 'auto',
+    scrollX: false,
+    scrollY: false,
+    rowHeight: 48,
+    minBodyHeight: 100,
+  });
 
   // ------------------------------------------------------------------
   // Fetch & Render
@@ -31,50 +84,37 @@
     const params = new URLSearchParams();
     params.set('page', currentPage);
     params.set('per_page', PER_PAGE);
-    if (dateFrom.value) params.set('date_from', dateFrom.value);
-    if (dateTo.value) params.set('date_to', dateTo.value);
+    if (fpFrom.input.value) params.set('date_from', fpFrom.input.value);
+    if (fpTo.input.value) params.set('date_to', fpTo.input.value);
     if (searchText.value.trim()) params.set('search', searchText.value.trim());
-
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:32px"><div class="spinner"></div></td></tr>`;
 
     try {
       const data = await apiGet(`/api/history?${params.toString()}`);
       totalPages = Math.max(1, Math.ceil(data.total / PER_PAGE));
-      renderTable(data.items || []);
+
+      const rows = (data.items || []).map(function (item) {
+        return {
+          _id: item.id,
+          week_label: formatWeekLabel(item.week_range),
+          article_count_label: item.article_count + '건',
+          status: item.status,
+          created_date: formatDate(item.created_at),
+        };
+      });
+
+      grid.resetData(rows);
       renderPagination();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:32px;color:var(--color-text-secondary);">이력을 불러올 수 없습니다.</td></tr>`;
+      grid.resetData([]);
       showToast(err.message, 'error');
     }
   }
 
-  function renderTable(items) {
-    if (items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:32px;color:var(--color-text-secondary);">검색 결과가 없습니다.</td></tr>`;
-      paginationEl.innerHTML = '';
-      return;
-    }
-
-    tbody.innerHTML = items.map((item) => `
-      <tr>
-        <td>${formatWeekRange(item.week_range)}</td>
-        <td>${item.article_count}건</td>
-        <td><span class="badge ${statusBadgeClass(item.status)}">${item.status}</span></td>
-        <td>${formatDate(item.created_at)}</td>
-        <td>
-          <button class="btn btn--secondary btn--sm" data-view-id="${item.id}">조회</button>
-        </td>
-      </tr>
-    `).join('');
-
-    tbody.querySelectorAll('[data-view-id]').forEach((btn) => {
-      btn.addEventListener('click', () => openMarkdown(btn.dataset.viewId));
-    });
-  }
-
   // ------------------------------------------------------------------
-  // Pagination
+  // Custom Pagination
   // ------------------------------------------------------------------
+
+  const paginationEl = document.getElementById('custom-pagination');
 
   function renderPagination() {
     if (totalPages <= 1) {
@@ -82,42 +122,26 @@
       return;
     }
 
-    let html = '';
+    var html = '';
+    html += '<button class="pg-btn" data-page="' + (currentPage - 1) + '"' + (currentPage <= 1 ? ' disabled' : '') + '>&laquo;</button>';
 
-    // Previous
-    html += `<button class="pagination__btn" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>이전</button>`;
+    var startPage = Math.max(1, currentPage - 2);
+    var endPage = Math.min(totalPages, startPage + 4);
+    if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
 
-    // Page numbers - show a window of pages around current
-    const maxVisible = 5;
-    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
+    for (var i = startPage; i <= endPage; i++) {
+      html += '<button class="pg-btn' + (i === currentPage ? ' pg-btn--active' : '') + '" data-page="' + i + '">' + i + '</button>';
     }
 
-    if (start > 1) {
-      html += `<button class="pagination__btn" data-page="1">1</button>`;
-      if (start > 2) html += `<span style="padding:0 4px;color:var(--color-text-muted);">...</span>`;
-    }
-
-    for (let i = start; i <= end; i++) {
-      html += `<button class="pagination__btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
-    }
-
-    if (end < totalPages) {
-      if (end < totalPages - 1) html += `<span style="padding:0 4px;color:var(--color-text-muted);">...</span>`;
-      html += `<button class="pagination__btn" data-page="${totalPages}">${totalPages}</button>`;
-    }
-
-    // Next
-    html += `<button class="pagination__btn" data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>다음</button>`;
-
+    html += '<button class="pg-btn" data-page="' + (currentPage + 1) + '"' + (currentPage >= totalPages ? ' disabled' : '') + '>&raquo;</button>';
     paginationEl.innerHTML = html;
 
-    paginationEl.querySelectorAll('[data-page]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const page = parseInt(btn.dataset.page, 10);
-        if (page >= 1 && page <= totalPages) loadHistory(page);
+    paginationEl.querySelectorAll('.pg-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var page = parseInt(btn.dataset.page, 10);
+        if (page >= 1 && page <= totalPages && page !== currentPage) {
+          loadHistory(page);
+        }
       });
     });
   }
@@ -126,38 +150,136 @@
   // Markdown modal
   // ------------------------------------------------------------------
 
+  let currentHistoryId = null;
+
   async function openMarkdown(historyId) {
+    currentHistoryId = historyId;
     modal.classList.remove('hidden');
+
+    // Reset to markdown tab
+    document.querySelectorAll('.modal-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelectorAll('.modal-tab-panel').forEach(function (p) { p.classList.remove('active'); });
+    document.querySelector('[data-modal-tab="modal-tab-md"]').classList.add('active');
+    document.getElementById('modal-tab-md').classList.add('active');
+
     modalContent.innerHTML = '<div class="text-center" style="padding:24px"><div class="spinner"></div></div>';
+    modalImagesGrid.innerHTML = '';
+    modalImagesCount.textContent = '';
 
     try {
-      const data = await apiGet(`/api/history/${historyId}/markdown`);
+      const data = await apiGet('/api/history/' + historyId + '/markdown');
       modalContent.innerHTML = marked.parse(data.content || '');
+
+      // Collect image sources before replacing
+      var images = [];
+      modalContent.querySelectorAll('img').forEach(function (img) {
+        images.push(img.getAttribute('src'));
+        var placeholder = document.createElement('span');
+        placeholder.className = 'md-preview__image-placeholder';
+        placeholder.textContent = '[이미지]';
+        img.replaceWith(placeholder);
+      });
+
+      // Build images grid
+      renderModalImages(images);
     } catch (err) {
-      modalContent.innerHTML = `<p style="color:var(--color-danger);">마크다운을 불러올 수 없습니다: ${err.message}</p>`;
+      modalContent.innerHTML = '<p style="color:var(--color-danger);">마크다운을 불러올 수 없습니다: ' + escapeHtml(err.message) + '</p>';
     }
   }
 
-  modalClose.addEventListener('click', () => modal.classList.add('hidden'));
-  modal.addEventListener('click', (e) => {
+  function renderModalImages(imageSrcs) {
+    if (imageSrcs.length === 0) {
+      modalImagesCount.textContent = '이미지 0건';
+      modalImagesGrid.innerHTML = '<div class="empty-state"><div class="empty-state__text">이미지 없음</div></div>';
+      btnModalDownloadZip.disabled = true;
+      return;
+    }
+
+    modalImagesCount.textContent = '이미지 ' + imageSrcs.length + '건';
+    btnModalDownloadZip.disabled = false;
+
+    modalImagesGrid.innerHTML = imageSrcs
+      .map(function (src) {
+        var displaySrc = src.startsWith('http') ? src : '/output/' + src;
+        var downloadSrc = '/output/' + src;
+        return '<div class="image-card">' +
+          '<img class="image-card__preview" src="' + displaySrc + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
+          '<div class="image-card__info">' +
+          '<div class="image-card__actions">' +
+          '<a href="' + downloadSrc + '" download class="btn btn--outline btn--sm">다운로드</a>' +
+          '</div></div></div>';
+      })
+      .join('');
+  }
+
+  // Modal tab switching
+  document.querySelectorAll('.modal-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.modal-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.modal-tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.modalTab).classList.add('active');
+    });
+  });
+
+  // Modal ZIP download
+  btnModalDownloadZip.addEventListener('click', async function () {
+    if (!currentHistoryId) return;
+    btnModalDownloadZip.disabled = true;
+    btnModalDownloadZip.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> 다운로드 중...';
+
+    try {
+      var res = await fetch('/api/history/' + currentHistoryId + '/images/zip');
+      if (!res.ok) {
+        var err = await res.json().catch(function () { return { detail: '다운로드 실패' }; });
+        throw new Error(err.detail || '다운로드 실패');
+      }
+      var blob = await res.blob();
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'images.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('이미지 ZIP 다운로드 완료', 'success');
+    } catch (err) {
+      showToast('ZIP 다운로드 실패: ' + err.message, 'error');
+    } finally {
+      btnModalDownloadZip.disabled = false;
+      btnModalDownloadZip.textContent = '전체 다운로드 (ZIP)';
+    }
+  });
+
+  modalClose.addEventListener('click', function () { modal.classList.add('hidden'); });
+  modal.addEventListener('click', function (e) {
     if (e.target === modal) modal.classList.add('hidden');
   });
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
       modal.classList.add('hidden');
     }
   });
 
   // ------------------------------------------------------------------
-  // Events
+  // Filter Events
   // ------------------------------------------------------------------
 
-  filterForm.addEventListener('submit', (e) => {
+  filterForm.addEventListener('submit', function (e) {
     e.preventDefault();
     loadHistory(1);
   });
 
-  document.getElementById('search-btn').addEventListener('click', () => {
+  document.getElementById('search-btn').addEventListener('click', function () {
+    loadHistory(1);
+  });
+
+  // 초기화 버튼
+  resetBtn.addEventListener('click', function () {
+    fpFrom.clear();
+    fpTo.clear();
+    searchText.value = '';
     loadHistory(1);
   });
 

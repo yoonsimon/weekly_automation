@@ -12,6 +12,7 @@ import os
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 
@@ -19,13 +20,24 @@ from collector.rss import NewsArticle, collect_news, resolve_google_urls
 from processor.markdown import build_reframe_table
 from scorer.ranking import ScoredArticle, score_article, select_weekly_picks, _is_similar_title
 from scraper.article_scraper import ScrapedArticle, scrape_article
-from scraper.notice_scraper import get_week_range
+from scraper.notice_scraper import get_week_label, get_week_range
 from web.models import ArticleCard
 
 logger = logging.getLogger(__name__)
 
 KST = timezone(timedelta(hours=9))
-MAX_REPLACEMENT_PER_SLOT = 3
+MAX_REPLACEMENT_PER_SLOT = 5
+POOL_TTL_SECONDS = 1800  # 후보 풀 캐시 유효 시간 (30분)
+
+_ERROR_CODE_LABELS: dict[str, str] = {
+    "paywall": "유료 콘텐츠",
+    "blocked": "접근 차단",
+    "not_found": "페이지 없음",
+    "server_error": "서버 오류",
+    "timeout": "시간 초과",
+    "network": "네트워크 오류",
+    "parse_failed": "파싱 실패",
+}
 
 
 # ------------------------------------------------------------------
@@ -43,11 +55,20 @@ class GenerationSession:
     scraped_texts: dict[str, str] = field(default_factory=dict)
     image_refs: dict[str, str] = field(default_factory=dict)
     scraped_articles: dict[str, ScrapedArticle] = field(default_factory=dict)
+    scrape_errors: dict[str, str] = field(default_factory=dict)  # link -> error_code
 
     # Replacement tracking
     excluded_keywords: dict[int, list[str]] = field(default_factory=dict)
     replacement_counts: dict[int, int] = field(default_factory=dict)
     pending_replacements: dict[int, dict] = field(default_factory=dict)
+
+    # Candidate pool cache (avoids re-collecting RSS on every replacement)
+    candidate_pool: list[ScoredArticle] = field(default_factory=list)
+    pool_created_at: float = 0.0
+
+    # Prefetched replacement candidates (ready to serve instantly)
+    prefetched: dict[int, dict] = field(default_factory=dict)
+    _prefetch_lock: threading.Lock = field(default_factory=threading.Lock)
 
     # Progress events (asyncio.Queue is created per session)
     progress_queue: asyncio.Queue | None = None
@@ -58,19 +79,19 @@ class GenerationSession:
     def _flat_picks(self) -> list[ScoredArticle]:
         """Return all picks in a flat list preserving slot order."""
         result: list[ScoredArticle] = []
-        for key in ("main", "market", "other"):
+        for key in ("main", "other", "market"):
             result.extend(self.picks.get(key, []))
         return result
 
     def _slot_for_index(self, index: int) -> str:
         """Return slot key for global index."""
         offset = 0
-        for key in ("main", "market", "other"):
+        for key in ("main", "other", "market"):
             articles = self.picks.get(key, [])
             if index < offset + len(articles):
                 return key
             offset += len(articles)
-        return "other"
+        return "market"
 
 
 # ------------------------------------------------------------------
@@ -169,6 +190,7 @@ def _run_pipeline(session: GenerationSession) -> None:
     """Full pipeline: collect -> score -> resolve urls -> scrape. Runs in a thread."""
     try:
         config = session.config
+        current_step = "뉴스 수집"
 
         # Step 1: Collect
         session.status = "collecting"
@@ -182,20 +204,29 @@ def _run_pipeline(session: GenerationSession) -> None:
             _emit_progress(session, "error", 0, 0, session.error_message)
             return
 
+        current_step = "분석/선별"
         # Step 2: Score & select
         session.status = "scoring"
         _emit_progress(session, "scoring", 0, 1, "기사를 분석하고 선별하고 있습니다...")
+
+        # Cache scored pool for later replacement reuse
+        scored_all = [score_article(a, config) for a in all_articles]
+        scored_all.sort(key=lambda a: (a.score, a.date), reverse=True)
+        session.candidate_pool = scored_all
+        session.pool_created_at = time.time()
+
         picks = select_weekly_picks(all_articles, config)
         session.picks = picks
         _emit_progress(session, "scoring", 1, 1, "기사 선별 완료")
 
-        all_picks = picks.get("main", []) + picks.get("market", []) + picks.get("other", [])
+        all_picks = picks.get("main", []) + picks.get("other", []) + picks.get("market", [])
         if not all_picks:
             session.status = "error"
             session.error_message = "선정된 기사가 없습니다"
             _emit_progress(session, "error", 0, 0, session.error_message)
             return
 
+        current_step = "URL 해석"
         # Step 3: Resolve Google News URLs
         _emit_progress(session, "scraping", 0, len(all_picks), "URL을 해석하고 있습니다...")
         temp_articles = [
@@ -206,42 +237,115 @@ def _run_pipeline(session: GenerationSession) -> None:
         for pick, resolved in zip(all_picks, temp_articles):
             pick.link = resolved.link
 
-        # Step 4: Scrape each article
+        current_step = "본문 스크래핑"
+        # Step 4: Scrape articles in parallel
         session.status = "scraping"
         images_dir = _images_dir()
         total = len(all_picks)
+        progress_lock = threading.Lock()
+        completed_count = 0
 
-        for i, article in enumerate(all_picks):
-            _emit_progress(
-                session, "scraping", i, total,
-                f"기사 스크래핑 중: {article.title[:30]}..."
-            )
+        def _scrape_one(idx_article):
+            idx, article = idx_article
             try:
                 scraped = scrape_article(
                     article.link, article.title,
                     download_images=True, image_output_dir=images_dir,
                 )
-                session.scraped_texts[article.link] = scraped.text
-                session.scraped_articles[article.link] = scraped
-
-                if scraped.image_paths:
-                    filename = os.path.basename(scraped.image_paths[0])
-                    session.image_refs[article.link] = f"![img](images/{filename})"
-
-            except Exception:
+                return idx, article, scraped, None
+            except Exception as e:
                 logger.exception("스크래핑 실패: %s", article.link)
-                session.scraped_texts[article.link] = "(본문을 추출할 수 없습니다)"
+                return idx, article, None, e
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {
+                pool.submit(_scrape_one, (i, a)): i
+                for i, a in enumerate(all_picks)
+            }
+            for future in as_completed(futures):
+                idx, article, scraped, err = future.result()
+                if scraped:
+                    session.scraped_texts[article.link] = scraped.text
+                    session.scraped_articles[article.link] = scraped
+                    if scraped.error_code:
+                        session.scrape_errors[article.link] = scraped.error_code
+                    if scraped.image_paths:
+                        filename = os.path.basename(scraped.image_paths[0])
+                        session.image_refs[article.link] = f"![img](images/{filename})"
+                else:
+                    session.scraped_texts[article.link] = "(본문을 추출할 수 없습니다)"
+                    session.scrape_errors[article.link] = "network"
+
+                with progress_lock:
+                    completed_count += 1
+                    _emit_progress(
+                        session, "scraping", completed_count, total,
+                        f"스크래핑 완료: {article.title[:30]}... ({completed_count}/{total})"
+                    )
 
         _emit_progress(session, "scraping", total, total, "모든 기사 스크래핑 완료")
 
         session.status = "ready"
         _emit_progress(session, "ready", total, total, "기사 생성 준비 완료")
 
+        # Start background prefetch for all slots
+        threading.Thread(target=_prefetch_all_slots, args=(session,), daemon=True).start()
+
     except Exception as exc:
         logger.exception("파이프라인 오류")
         session.status = "error"
-        session.error_message = str(exc)
-        _emit_progress(session, "error", 0, 0, f"오류 발생: {exc}")
+        session.error_message = f"[{current_step}] {exc}"
+        _emit_progress(session, "error", 0, 0, f"[{current_step}] 오류 발생: {exc}")
+
+
+def _prefetch_single_slot(session: GenerationSession, idx: int) -> None:
+    """Prefetch a single replacement candidate for the given slot index."""
+    try:
+        if not session.candidate_pool:
+            return
+
+        _, _, current_article = _find_article_by_index(session, idx)
+        if current_article is None:
+            return
+
+        excluded = session.excluded_keywords.get(idx, [])
+        with session._prefetch_lock:
+            batch_chosen = [
+                session.prefetched[i]["article"].title
+                for i in session.prefetched
+                if i != idx
+            ]
+
+        slot = session._slot_for_index(idx)
+        candidate = _pick_from_pool(
+            session, session.candidate_pool, current_article, excluded, batch_chosen, slot=slot,
+        )
+        if candidate is None:
+            return
+
+        images_dir = _images_dir()
+        scraped = scrape_article(
+            candidate.link, candidate.title,
+            download_images=True, image_output_dir=images_dir,
+        )
+
+        with session._prefetch_lock:
+            session.prefetched[idx] = {"article": candidate, "scraped": scraped}
+        logger.info("프리페치 완료: slot %d → %s", idx, candidate.title[:30])
+
+    except Exception:
+        logger.exception("프리페치 실패: slot %d", idx)
+
+
+def _prefetch_all_slots(session: GenerationSession) -> None:
+    """Prefetch replacement candidates for all 7 slots in parallel."""
+    all_picks = session._flat_picks()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        pool.map(
+            lambda idx: _prefetch_single_slot(session, idx),
+            range(len(all_picks)),
+        )
+    logger.info("전체 프리페치 완료: %d개 슬롯 준비됨", len(session.prefetched))
 
 
 def start_generation(config: dict) -> GenerationSession:
@@ -265,7 +369,7 @@ def get_articles(session_id: str) -> dict[str, list[ArticleCard]] | None:
     result: dict[str, list[ArticleCard]] = {}
     global_index = 0
 
-    for slot in ("main", "market", "other"):
+    for slot in ("main", "other", "market"):
         cards: list[ArticleCard] = []
         for article in session.picks.get(slot, []):
             body = session.scraped_texts.get(article.link, "")
@@ -273,7 +377,10 @@ def get_articles(session_id: str) -> dict[str, list[ArticleCard]] | None:
             image_url = scraped.image_url if scraped else ""
             image_local = ""
             if scraped and scraped.image_paths:
-                image_local = f"/output/images/{os.path.basename(scraped.image_paths[0])}"
+                image_local = f"images/{os.path.basename(scraped.image_paths[0])}"
+
+            error_code = session.scrape_errors.get(article.link, "")
+            scrape_error = _ERROR_CODE_LABELS.get(error_code, "") if error_code else ""
 
             card = ArticleCard(
                 index=global_index,
@@ -291,6 +398,7 @@ def get_articles(session_id: str) -> dict[str, list[ArticleCard]] | None:
                 replacement_count=session.replacement_counts.get(global_index, 0),
                 max_replacements=MAX_REPLACEMENT_PER_SLOT,
                 scrape_status=_determine_scrape_status(body),
+                scrape_error=scrape_error,
             )
             cards.append(card)
             global_index += 1
@@ -306,7 +414,7 @@ def get_articles(session_id: str) -> dict[str, list[ArticleCard]] | None:
 def _find_article_by_index(session: GenerationSession, index: int) -> tuple[str, int, ScoredArticle | None]:
     """Return (slot_key, local_index, article) for a global index."""
     offset = 0
-    for slot in ("main", "market", "other"):
+    for slot in ("main", "other", "market"):
         articles = session.picks.get(slot, [])
         if index < offset + len(articles):
             local_idx = index - offset
@@ -321,7 +429,30 @@ def replace_articles(session_id: str, article_indices: list[int]) -> list[dict] 
     if session is None or session.status != "ready":
         return None
 
+    # Reuse cached candidate pool if still valid, otherwise collect fresh
+    pool_age = time.time() - session.pool_created_at
+    if session.candidate_pool and pool_age < POOL_TTL_SECONDS:
+        scored_pool = session.candidate_pool
+        logger.info("후보 풀 캐시 사용 (경과 %.0f초)", pool_age)
+    else:
+        try:
+            new_articles = collect_news(session.config)
+        except Exception:
+            logger.exception("대체 기사 수집 실패")
+            return None
+
+        if not new_articles:
+            return None
+
+        scored_pool = [score_article(a, session.config) for a in new_articles]
+        scored_pool.sort(key=lambda a: (a.score, a.date), reverse=True)
+        session.candidate_pool = scored_pool
+        session.pool_created_at = time.time()
+        logger.info("후보 풀 새로 수집: %d개 후보", len(scored_pool))
+
     results: list[dict] = []
+    # Track titles chosen in THIS batch to prevent duplicate replacements
+    batch_chosen_titles: list[str] = []
 
     for idx in article_indices:
         count = session.replacement_counts.get(idx, 0)
@@ -336,30 +467,61 @@ def replace_articles(session_id: str, article_indices: list[int]) -> list[dict] 
         # Build the "before" card
         before_card = _article_to_card(session, idx, old_article)
 
-        # Exclude this article's keyword and re-collect
+        # Exclude this article's keyword
         excluded = session.excluded_keywords.setdefault(idx, [])
         excluded.append(old_article.keyword)
 
-        replacement = _find_replacement(session, old_article, excluded, slot)
-        if replacement is None:
-            logger.warning("대체 기사를 찾을 수 없음: index=%d", idx)
-            continue
+        # Check if a prefetched candidate is available for instant replacement
+        prefetched = None
+        with session._prefetch_lock:
+            prefetched = session.prefetched.pop(idx, None)
 
-        # Scrape the replacement
-        images_dir = _images_dir()
-        try:
-            scraped = scrape_article(
-                replacement.link, replacement.title,
-                download_images=True, image_output_dir=images_dir,
+        # Validate prefetched candidate is not a duplicate of another replacement in this batch
+        if prefetched is not None:
+            pf_title = prefetched["article"].title
+            is_batch_dup = any(
+                pf_title == t or _is_similar_title(pf_title, t)
+                for t in batch_chosen_titles
             )
+            if is_batch_dup:
+                logger.info("프리페치 캐시 중복 → 풀에서 재선택: slot %d, title=%s", idx, pf_title[:30])
+                prefetched = None  # fall through to pool-based picking
+
+        if prefetched is not None:
+            replacement = prefetched["article"]
+            scraped = prefetched["scraped"]
+            logger.info("프리페치 캐시 히트: slot %d → %s", idx, replacement.title[:30])
+
             session.scraped_texts[replacement.link] = scraped.text
             session.scraped_articles[replacement.link] = scraped
             if scraped.image_paths:
                 filename = os.path.basename(scraped.image_paths[0])
                 session.image_refs[replacement.link] = f"![img](images/{filename})"
-        except Exception:
-            logger.exception("대체 기사 스크래핑 실패: %s", replacement.link)
-            session.scraped_texts[replacement.link] = "(본문을 추출할 수 없습니다)"
+        else:
+            # Fallback: pick from pool and scrape on-demand
+            replacement = _pick_from_pool(
+                session, scored_pool, old_article, excluded, batch_chosen_titles, slot=slot,
+            )
+            if replacement is None:
+                logger.warning("대체 기사를 찾을 수 없음: index=%d", idx)
+                continue
+
+            images_dir = _images_dir()
+            try:
+                scraped = scrape_article(
+                    replacement.link, replacement.title,
+                    download_images=True, image_output_dir=images_dir,
+                )
+                session.scraped_texts[replacement.link] = scraped.text
+                session.scraped_articles[replacement.link] = scraped
+                if scraped.image_paths:
+                    filename = os.path.basename(scraped.image_paths[0])
+                    session.image_refs[replacement.link] = f"![img](images/{filename})"
+            except Exception:
+                logger.exception("대체 기사 스크래핑 실패: %s", replacement.link)
+                session.scraped_texts[replacement.link] = "(본문을 추출할 수 없습니다)"
+
+        batch_chosen_titles.append(replacement.title)
 
         new_count = count + 1
         session.replacement_counts[idx] = new_count
@@ -385,64 +547,67 @@ def replace_articles(session_id: str, article_indices: list[int]) -> list[dict] 
             "replacement_count": new_count,
         })
 
+        # Re-prefetch next candidate for this slot in background
+        if new_count < MAX_REPLACEMENT_PER_SLOT:
+            threading.Thread(
+                target=_prefetch_single_slot, args=(session, idx), daemon=True,
+            ).start()
+
     return results
 
 
-def _find_replacement(
+def _pick_from_pool(
     session: GenerationSession,
+    scored_pool: list[ScoredArticle],
     old_article: ScoredArticle,
     excluded_keywords: list[str],
-    target_slot: str,
+    batch_chosen_titles: list[str],
+    slot: str = "",
 ) -> ScoredArticle | None:
-    """Re-collect, re-score, filter, and pick the best replacement."""
-    config = copy.deepcopy(session.config)
-
-    # Remove excluded keywords from config
-    rss_keywords: list[str] = list(config.get("rss", {}).get("keywords", []))
-    for ek in excluded_keywords:
-        if ek in rss_keywords:
-            rss_keywords.remove(ek)
-    if not rss_keywords:
-        return None
-    config.setdefault("rss", {})["keywords"] = rss_keywords
-
-    # Re-collect
-    try:
-        new_articles = collect_news(config)
-    except Exception:
-        logger.exception("대체 기사 수집 실패")
-        return None
-
-    if not new_articles:
-        return None
-
-    # Resolve URLs
-    resolve_google_urls(new_articles)
-
-    # Score
-    scored = [score_article(a, session.config) for a in new_articles]
-
-    # Filter: same category as old article
-    scored = [a for a in scored if a.category == old_article.category]
-
-    # Filter: not similar to any already-selected article
+    """Pick the best non-duplicate replacement from the pre-scored pool."""
+    # Existing picks + pending replacements from earlier batches
     all_existing = session._flat_picks()
-    filtered: list[ScoredArticle] = []
-    for candidate in scored:
+    for pending in session.pending_replacements.values():
+        all_existing.append(pending["new_article"])
+
+    for candidate in scored_pool:
+        # Must match category (main slot allows any category)
+        if slot != "main" and candidate.category != old_article.category:
+            continue
+
+        # Skip excluded keywords
+        if candidate.keyword in excluded_keywords:
+            continue
+
+        # Skip if similar to any existing or pending article
         is_dup = False
         for existing in all_existing:
             if candidate.title == existing.title or _is_similar_title(candidate.title, existing.title):
                 is_dup = True
                 break
-        if not is_dup:
-            filtered.append(candidate)
+        if is_dup:
+            continue
 
-    if not filtered:
-        return None
+        # Skip if already chosen in this batch
+        batch_dup = False
+        for chosen_title in batch_chosen_titles:
+            if candidate.title == chosen_title or _is_similar_title(candidate.title, chosen_title):
+                batch_dup = True
+                break
+        if batch_dup:
+            continue
 
-    # Sort by score descending, pick best
-    filtered.sort(key=lambda a: (a.score, a.date), reverse=True)
-    return filtered[0]
+        # Resolve URL only for this single candidate
+        temp = [NewsArticle(
+            keyword=candidate.keyword, title=candidate.title,
+            source=candidate.source, link=candidate.link, date=candidate.date,
+        )]
+        resolve_google_urls(temp)
+        candidate.link = temp[0].link
+
+        return candidate
+
+    return None
 
 
 def _determine_scrape_status(body: str) -> str:
@@ -461,7 +626,10 @@ def _article_to_card(session: GenerationSession, index: int, article: ScoredArti
     image_url = scraped.image_url if scraped else ""
     image_local = ""
     if scraped and scraped.image_paths:
-        image_local = f"/output/images/{os.path.basename(scraped.image_paths[0])}"
+        image_local = f"images/{os.path.basename(scraped.image_paths[0])}"
+
+    error_code = session.scrape_errors.get(article.link, "")
+    scrape_error = _ERROR_CODE_LABELS.get(error_code, "") if error_code else ""
 
     return ArticleCard(
         index=index,
@@ -479,6 +647,7 @@ def _article_to_card(session: GenerationSession, index: int, article: ScoredArti
         replacement_count=session.replacement_counts.get(index, 0),
         max_replacements=MAX_REPLACEMENT_PER_SLOT,
         scrape_status=_determine_scrape_status(body),
+        scrape_error=scrape_error,
     )
 
 
@@ -557,14 +726,15 @@ def confirm(session_id: str) -> tuple[str, str] | None:
     markdown = build_reframe_table(session.picks, session.scraped_texts, session.image_refs)
 
     monday, sunday = get_week_range()
-    md_filename = f"주간_기사_모음_{monday.isoformat()}_{sunday.isoformat()}.md"
+    week_label = get_week_label()
+    md_filename = f"주간_기사_모음_{week_label}.md"
 
     # Ensure unique filename
     output_dir = _output_dir()
     md_path = os.path.join(output_dir, md_filename)
     counter = 1
     while os.path.exists(md_path):
-        md_filename = f"주간_기사_모음_{monday.isoformat()}_{sunday.isoformat()}_{counter}.md"
+        md_filename = f"주간_기사_모음_{week_label}_{counter}.md"
         md_path = os.path.join(output_dir, md_filename)
         counter += 1
 

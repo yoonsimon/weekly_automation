@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: weekly-news-dashboard
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_web.py
+    envVars:
+      - key: DOORAY_API_TOKEN
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.12"
