@@ -68,8 +68,6 @@
   // ------------------------------------------------------------------
 
   var collectResult = null;
-  var selectedParentPageId = null;
-  var selectedWikiId = null;
   var gridInstances = [];       // { grid, platformName }[]
   var allNoticesFlat = [];      // { source, date, title, url }[]
 
@@ -151,13 +149,75 @@
   // Collect
   // ------------------------------------------------------------------
 
+  var progressChecklist = document.getElementById('progress-checklist');
+
+  function renderProgressChecklist(names) {
+    progressChecklist.innerHTML = names.map(function (name) {
+      return '<div id="progress-' + escapeHtml(name) + '" style="display:flex; align-items:center; gap:10px; font-size:14px;">' +
+        '<span class="progress-icon" style="width:18px; text-align:center; color:var(--color-text-muted);">&#9711;</span>' +
+        '<span>' + escapeHtml(name) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  function updateProgressItem(name, status) {
+    var el = document.getElementById('progress-' + name);
+    if (!el) return;
+    var icon = el.querySelector('.progress-icon');
+    if (status === 'collecting') {
+      icon.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;"></span>';
+      icon.style.color = '';
+    } else if (status === 'done') {
+      icon.innerHTML = '&#10003;';
+      icon.style.color = 'var(--color-success, #38a169)';
+    } else if (status === 'error') {
+      icon.innerHTML = '&#10007;';
+      icon.style.color = 'var(--color-danger, #e53e3e)';
+    }
+  }
+
   async function doCollect() {
     showState('loading');
+    progressChecklist.innerHTML = '';
+
     try {
-      var data = await apiPost('/api/notices/collect');
-      collectResult = data;
-      renderResults(data);
-      showState('results');
+      var response = await fetch('/api/notices/collect/stream');
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var finalData = null;
+
+      while (true) {
+        var result = await reader.read();
+        if (result.done) break;
+        buffer += decoder.decode(result.value, { stream: true });
+
+        var lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (!line.startsWith('data: ')) continue;
+          var payload = JSON.parse(line.slice(6));
+
+          if (payload.type === 'platforms') {
+            renderProgressChecklist(payload.names);
+          } else if (payload.type === 'progress') {
+            updateProgressItem(payload.name, payload.status);
+          } else if (payload.type === 'complete') {
+            finalData = payload.data;
+          }
+        }
+      }
+
+      if (finalData) {
+        collectResult = finalData;
+        renderResults(finalData);
+        showState('results');
+      } else {
+        showToast('수집 결과를 받지 못했습니다.', 'error');
+        showState('idle');
+      }
     } catch (err) {
       showToast('수집 실패: ' + err.message, 'error');
       showState('idle');
