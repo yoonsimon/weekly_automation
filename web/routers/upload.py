@@ -7,12 +7,14 @@ Includes image upload and category-based sorting.
 import logging
 import os
 import re
+from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
+from typing import Optional
 
 from dooray.wiki_client import DoorayApiError, DoorayWikiClient
-from web.models import UploadResponse
+from web.models import ArticleSummary, HistoryEntry, UploadResponse
 from web.services import history_service
 
 logger = logging.getLogger(__name__)
@@ -213,6 +215,144 @@ def _table_to_sections(md_content: str) -> str:
         return md_content
 
     return "\n\n".join(sections)
+
+
+# ------------------------------------------------------------------
+# Local upload helpers
+# ------------------------------------------------------------------
+
+KST = timezone(timedelta(hours=9))
+
+SLOT_MAP = {
+    "최상단": "main",
+    "오픈마켓/소셜커머스": "market",
+    "기타 커머스/IT 동향": "other",
+}
+
+
+def _safe_save_path(directory: str, filename: str) -> str:
+    """Return a path in *directory* for *filename*, appending _1, _2 etc. on collision."""
+    path = os.path.join(directory, filename)
+    if not os.path.exists(path):
+        return path
+    name, ext = os.path.splitext(filename)
+    counter = 1
+    while True:
+        candidate = os.path.join(directory, f"{name}_{counter}{ext}")
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+
+
+def _parse_articles_from_md(md_content: str) -> list[ArticleSummary]:
+    """Parse article rows from a markdown table."""
+    lines = md_content.strip().split("\n")
+    articles: list[ArticleSummary] = []
+
+    for line in lines[2:]:  # skip header + separator
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) < 3:
+            continue
+
+        date_str = cells[0]
+
+        # category cell: **카테고리**<br>키워드
+        cat_raw = cells[1]
+        cat_clean = cat_raw.replace("**", "").strip()
+        cat_parts = cat_clean.split("<br>")
+        category = cat_parts[0].strip()
+        keyword = cat_parts[1].strip() if len(cat_parts) > 1 else ""
+
+        # content cell: [title](url)<br><br>body...
+        content_raw = cells[2]
+        title = ""
+        link = ""
+        link_match = re.match(r'\[([^\]]*)\]\(([^)]+)\)', content_raw)
+        if link_match:
+            title = link_match.group(1)
+            link = link_match.group(2)
+
+        slot = SLOT_MAP.get(category, "other")
+
+        articles.append(ArticleSummary(
+            title=title,
+            source=keyword,
+            score=0,
+            slot=slot,
+            keyword=keyword,
+            link=link,
+            date=date_str,
+            replaced=False,
+        ))
+
+    return articles
+
+
+@router.post("/local")
+async def upload_local(
+    markdown: UploadFile = File(...),
+    images: list[UploadFile] | None = File(default=None),
+):
+    """로컬에서 생성한 마크다운과 이미지를 서버에 업로드하여 히스토리를 생성합니다."""
+    output_dir, images_dir = _get_dirs()
+    os.makedirs(images_dir, exist_ok=True)
+
+    # 1. Save markdown file
+    md_bytes = await markdown.read()
+    md_content = md_bytes.decode("utf-8")
+    original_filename = markdown.filename or "upload.md"
+    md_save_path = _safe_save_path(output_dir, original_filename)
+    saved_filename = os.path.basename(md_save_path)
+
+    with open(md_save_path, "w", encoding="utf-8") as f:
+        f.write(md_content)
+
+    logger.info("마크다운 저장: %s", md_save_path)
+
+    # 2. Save image files
+    saved_images = 0
+    for img_file in (images or []):
+        if not img_file.filename:
+            continue
+        img_bytes = await img_file.read()
+        img_save_path = _safe_save_path(images_dir, img_file.filename)
+        with open(img_save_path, "wb") as f:
+            f.write(img_bytes)
+        saved_images += 1
+
+    logger.info("이미지 %d개 저장", saved_images)
+
+    # 3. Parse articles from markdown table
+    articles = _parse_articles_from_md(md_content)
+
+    # 4. Create history entry
+    now = datetime.now(KST)
+    entry_id = now.strftime("%Y%m%d%H%M%S")
+    week_range = history_service._extract_week_range(saved_filename)
+
+    entry = HistoryEntry(
+        id=entry_id,
+        created_at=now.isoformat(),
+        week_range=week_range,
+        article_count=len(articles),
+        status="미리보기",
+        md_filename=saved_filename,
+        dooray_page_id=None,
+        articles=articles,
+    )
+    history_service.add_entry(entry)
+    logger.info("히스토리 항목 생성: %s (%d개 기사)", entry_id, len(articles))
+
+    return {
+        "history_id": entry_id,
+        "md_filename": saved_filename,
+        "article_count": len(articles),
+        "status": "미리보기",
+    }
 
 
 # ------------------------------------------------------------------
