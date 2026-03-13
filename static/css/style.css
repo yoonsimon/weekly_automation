@@ -361,26 +361,17 @@ main.container {
   height: 48px;
   display: flex;
   align-items: center;
+  padding: 0 var(--spacing-xxl);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-.header .container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: none;
-  margin: 0;
-  width: 100%;
-  padding: 0 var(--spacing-xxl);
-}
-
 .header__title {
-  font-size: var(--font-size-display-xs);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weights-commerce-sans-2);
   color: var(--color-text);
-  letter-spacing: -0.02em;
+  margin: 0;
 }
 
 /* ==========================================================================
@@ -1985,33 +1976,16 @@ main.container {
 .quick-status__card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  transition: box-shadow var(--transition), transform var(--transition);
-  position: relative;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.quick-status__card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--gray-200);
-  transition: background var(--transition);
+  transition: box-shadow var(--transition);
 }
 
 .quick-status__card:hover {
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 
 .quick-status__card-header {
@@ -2092,23 +2066,23 @@ main.container {
   background: var(--color-status-uploaded-text);
 }
 
-/* Card top accent by status */
-.quick-status__card[data-status="미리보기"]::before {
-  background: var(--blue-400);
-}
-.quick-status__card[data-status="업로드완료"]::before {
-  background: var(--green-400);
-}
 
 .quick-status__link {
-  font-size: var(--font-size-xs);
+  display: block;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-primary);
   text-decoration: none;
+  padding: 10px 16px;
+  margin: 0 -24px -24px;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 12px 12px;
+  text-align: center;
+  transition: background var(--transition);
 }
 
 .quick-status__link:hover {
-  text-decoration: underline;
+  background: var(--gray-50);
 }
 
 @media (max-width: 768px) {
