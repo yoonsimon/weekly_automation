@@ -141,6 +141,15 @@ class DoorayWikiClient:
         self._check_response(resp)
         logger.info("Page %s content updated successfully", page_id)
 
+    def delete_page(self, page_id: str) -> None:
+        """DELETE /wiki/v1/wikis/{wiki_id}/pages/{page_id} - Delete a wiki page."""
+        url = f"{BASE_URL}/wiki/v1/wikis/{self.wiki_id}/pages/{page_id}"
+        logger.debug("DELETE %s", url)
+
+        resp = self.session.delete(url)
+        self._check_response(resp)
+        logger.info("Page %s deleted successfully", page_id)
+
     # ------------------------------------------------------------------
     # File upload (redirect-based)
     # ------------------------------------------------------------------

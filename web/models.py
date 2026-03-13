@@ -134,6 +134,7 @@ class UploadResponse(BaseModel):
     history_id: str
     status: str
     dooray_page_id: str
+    dooray_page_url: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -171,3 +172,4 @@ class NoticesUploadRequest(BaseModel):
 class NoticesUploadResponse(BaseModel):
     status: str
     dooray_page_id: str
+    dooray_page_url: str = ""

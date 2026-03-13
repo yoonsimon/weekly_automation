@@ -272,6 +272,20 @@
   });
 
   // ------------------------------------------------------------------
+  // 전체 생성
+  // ------------------------------------------------------------------
+
+  var btnGenerateAll = document.getElementById('btn-generate-all');
+  if (btnGenerateAll) {
+    btnGenerateAll.addEventListener('click', function () {
+      // 기사 생성 페이지로 이동 (자동 시작)
+      window.location.href = '/generate?autostart=1';
+      // 공지사항 수집을 새 탭에서 자동 시작
+      window.open('/notices?autostart=1', '_blank');
+    });
+  }
+
+  // ------------------------------------------------------------------
   // Init
   // ------------------------------------------------------------------
 

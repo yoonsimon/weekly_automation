@@ -326,10 +326,13 @@ async def upload_to_dooray(history_id: str, body: UploadRequest | None = None):
             history_id, "업로드완료", dooray_page_id=page_id
         )
 
+        page_url = f"https://nhnent.dooray.com/wiki/{wiki_id}/pages/{page_id}"
+
         return UploadResponse(
             history_id=history_id,
             status="업로드완료",
             dooray_page_id=page_id,
+            dooray_page_url=page_url,
         )
 
     except DoorayApiError as e:
