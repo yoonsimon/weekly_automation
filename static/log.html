@@ -4,13 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>전체 생성 이력 - KR EC Trend</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=8">
-  <!-- TOAST UI Grid -->
-  <link rel="stylesheet" href="https://uicdn.toast.com/grid/latest/tui-grid.css">
-  <!-- Flatpickr -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <!-- Flowbite -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=9">
 </head>
 <body>
 
@@ -50,9 +44,9 @@
               <td class="cos-filter-label">기간</td>
               <td class="cos-filter-input" colspan="3">
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <input type="text" id="date-from" placeholder="시작일" style="width:150px;">
+                  <input type="date" id="date-from" style="width:150px;">
                   <span style="color:var(--color-text-muted);">~</span>
-                  <input type="text" id="date-to" placeholder="종료일" style="width:150px;">
+                  <input type="date" id="date-to" style="width:150px;">
                 </div>
               </td>
             </tr>
@@ -75,7 +69,18 @@
 
     <!-- TOAST UI Grid 이력 테이블 -->
     <section class="section">
-      <div id="log-grid"></div>
+      <table class="data-table" id="log-table">
+        <thead>
+          <tr>
+            <th>기간</th>
+            <th style="width:100px;text-align:center;">기사수</th>
+            <th style="width:120px;text-align:center;">상태</th>
+            <th style="width:150px;">생성일</th>
+            <th style="width:100px;text-align:center;"></th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
       <!-- Custom Pagination -->
       <div id="custom-pagination" class="custom-pagination"></div>
     </section>
@@ -114,10 +119,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.js"></script>
   <script src="/static/js/api.js?v=4"></script>
   <script src="/static/js/log.js?v=4"></script>
 </body>

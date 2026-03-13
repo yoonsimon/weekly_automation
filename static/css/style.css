@@ -2445,3 +2445,31 @@ button.btn {
   0%, 100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
   50% { box-shadow: 0 0 0 6px rgba(72, 187, 120, 0.3); }
 }
+
+/* ==========================================================================
+   Data table (replacement for TOAST UI Grid)
+   ========================================================================== */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.data-table th,
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  text-align: left;
+}
+.data-table th {
+  font-weight: 600;
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.8125rem;
+  background: var(--color-bg-secondary, #f8fafc);
+}
+.data-table tbody tr:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+}
+.data-table--compact th,
+.data-table--compact td {
+  padding: 8px 12px;
+}

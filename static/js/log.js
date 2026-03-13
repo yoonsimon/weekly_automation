@@ -1,5 +1,5 @@
 /**
- * log.js - 전체 이력 페이지 로직 (TOAST UI Grid + Flatpickr)
+ * log.js - 전체 이력 페이지 로직 (plain HTML table + native date inputs)
  */
 
 (function () {
@@ -10,6 +10,8 @@
   const filterForm = document.getElementById('filter-form');
   const searchText = document.getElementById('search-text');
   const resetBtn = document.getElementById('reset-btn');
+  const dateFrom = document.getElementById('date-from');
+  const dateTo = document.getElementById('date-to');
 
   const modal = document.getElementById('md-modal');
   const modalClose = document.getElementById('md-modal-close');
@@ -18,61 +20,36 @@
   const modalImagesCount = document.getElementById('modal-images-count');
   const btnModalDownloadZip = document.getElementById('btn-modal-download-zip');
 
+  const logTbody = document.getElementById('log-tbody');
+
   let currentPage = 1;
   let totalPages = 1;
 
   // ------------------------------------------------------------------
-  // Flatpickr 초기화
+  // Render table
   // ------------------------------------------------------------------
 
-  const fpFrom = flatpickr('#date-from', {
-    dateFormat: 'Y-m-d',
-  });
-
-  const fpTo = flatpickr('#date-to', {
-    dateFormat: 'Y-m-d',
-  });
-
-  // ------------------------------------------------------------------
-  // TOAST UI Grid 초기화
-  // ------------------------------------------------------------------
-
-  const ViewButtonRenderer = createActionButtonRenderer('조회', function (rowKey, grid) {
-    const rowData = grid.getRow(rowKey);
-    if (rowData && rowData._id) {
-      openMarkdown(rowData._id);
+  function renderTable(items) {
+    if (items.length === 0) {
+      logTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--color-text-muted);">이력 없음</td></tr>';
+      return;
     }
-  });
+    logTbody.innerHTML = items.map(function (item) {
+      return '<tr>' +
+        '<td>' + escapeHtml(formatWeekLabel(item.week_range)) + '</td>' +
+        '<td style="text-align:center;">' + item.article_count + '건</td>' +
+        '<td style="text-align:center;"><span class="badge ' + statusBadgeClass(item.status) + '">' + escapeHtml(item.status) + '</span></td>' +
+        '<td>' + formatDate(item.created_at) + '</td>' +
+        '<td style="text-align:center;"><button class="btn btn--outline btn--sm" data-view-id="' + item.id + '">조회</button></td>' +
+        '</tr>';
+    }).join('');
 
-  const grid = new tui.Grid({
-    el: document.getElementById('log-grid'),
-    columns: [
-      { header: '기간', name: 'week_label', minWidth: 120 },
-      { header: '기사수', name: 'article_count_label', width: 100, align: 'center' },
-      {
-        header: '상태',
-        name: 'status',
-        width: 120,
-        align: 'center',
-        renderer: { type: StatusBadgeRenderer },
-      },
-      { header: '생성일', name: 'created_date', width: 150 },
-      {
-        header: '',
-        name: 'action',
-        width: 100,
-        align: 'center',
-        renderer: { type: ViewButtonRenderer },
-        sortable: false,
-      },
-    ],
-    data: [],
-    bodyHeight: 'auto',
-    scrollX: false,
-    scrollY: false,
-    rowHeight: 48,
-    minBodyHeight: 100,
-  });
+    logTbody.querySelectorAll('[data-view-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openMarkdown(btn.dataset.viewId);
+      });
+    });
+  }
 
   // ------------------------------------------------------------------
   // Fetch & Render
@@ -84,28 +61,19 @@
     const params = new URLSearchParams();
     params.set('page', currentPage);
     params.set('per_page', PER_PAGE);
-    if (fpFrom.input.value) params.set('date_from', fpFrom.input.value);
-    if (fpTo.input.value) params.set('date_to', fpTo.input.value);
+    if (dateFrom.value) params.set('date_from', dateFrom.value);
+    if (dateTo.value) params.set('date_to', dateTo.value);
     if (searchText.value.trim()) params.set('search', searchText.value.trim());
 
     try {
       const data = await apiGet(`/api/history?${params.toString()}`);
       totalPages = Math.max(1, Math.ceil(data.total / PER_PAGE));
 
-      const rows = (data.items || []).map(function (item) {
-        return {
-          _id: item.id,
-          week_label: formatWeekLabel(item.week_range),
-          article_count_label: item.article_count + '건',
-          status: item.status,
-          created_date: formatDate(item.created_at),
-        };
-      });
-
-      grid.resetData(rows);
+      const items = data.items || [];
+      renderTable(items);
       renderPagination();
     } catch (err) {
-      grid.resetData([]);
+      logTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--color-text-muted);">이력 없음</td></tr>';
       showToast(err.message, 'error');
     }
   }
@@ -277,8 +245,8 @@
 
   // 초기화 버튼
   resetBtn.addEventListener('click', function () {
-    fpFrom.clear();
-    fpTo.clear();
+    dateFrom.value = '';
+    dateTo.value = '';
     searchText.value = '';
     loadHistory(1);
   });

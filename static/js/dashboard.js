@@ -1,5 +1,5 @@
 /**
- * dashboard.js - 메인 대시보드 페이지 로직 (TOAST UI Grid)
+ * dashboard.js - 메인 대시보드 페이지 로직 (plain HTML table)
  */
 
 (function () {
@@ -16,46 +16,7 @@
   const articleStatusEl = document.getElementById('article-status');
   const noticeStatusEl = document.getElementById('notice-status');
 
-  // ------------------------------------------------------------------
-  // TOAST UI Grid 초기화
-  // ------------------------------------------------------------------
-
-  const ViewButtonRenderer = createActionButtonRenderer('조회', function (rowKey, gridInstance) {
-    const rowData = gridInstance.getRow(rowKey);
-    if (rowData && rowData._id) {
-      openMarkdown(rowData._id);
-    }
-  });
-
-  const grid = new tui.Grid({
-    el: document.getElementById('recent-grid'),
-    columns: [
-      { header: '기간', name: 'week_label', minWidth: 120 },
-      { header: '기사수', name: 'article_count_label', width: 100, align: 'center' },
-      {
-        header: '상태',
-        name: 'status',
-        width: 120,
-        align: 'center',
-        renderer: { type: StatusBadgeRenderer },
-      },
-      { header: '생성일', name: 'created_date', width: 150 },
-      {
-        header: '',
-        name: 'action',
-        width: 100,
-        align: 'center',
-        renderer: { type: ViewButtonRenderer },
-        sortable: false,
-      },
-    ],
-    data: [],
-    bodyHeight: 'auto',
-    scrollX: false,
-    scrollY: false,
-    rowHeight: 48,
-    minBodyHeight: 60,
-  });
+  const recentTbody = document.getElementById('recent-tbody');
 
   // ------------------------------------------------------------------
   // Week label helper (matches backend get_week_label)
@@ -81,6 +42,32 @@
   }
 
   // ------------------------------------------------------------------
+  // Render table
+  // ------------------------------------------------------------------
+
+  function renderTable(items) {
+    if (items.length === 0) {
+      recentTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--color-text-muted);">이력 없음</td></tr>';
+      return;
+    }
+    recentTbody.innerHTML = items.map(function (item) {
+      return '<tr>' +
+        '<td>' + escapeHtml(formatWeekLabel(item.week_range)) + '</td>' +
+        '<td style="text-align:center;">' + item.article_count + '건</td>' +
+        '<td style="text-align:center;"><span class="badge ' + statusBadgeClass(item.status) + '">' + escapeHtml(item.status) + '</span></td>' +
+        '<td>' + formatDate(item.created_at) + '</td>' +
+        '<td style="text-align:center;"><button class="btn btn--outline btn--sm" data-view-id="' + item.id + '">조회</button></td>' +
+        '</tr>';
+    }).join('');
+
+    recentTbody.querySelectorAll('[data-view-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openMarkdown(btn.dataset.viewId);
+      });
+    });
+  }
+
+  // ------------------------------------------------------------------
   // Load recent history + derive quick status
   // ------------------------------------------------------------------
 
@@ -89,20 +76,10 @@
       const data = await apiGet('/api/history/recent');
       const items = Array.isArray(data) ? data : (data.items || []);
 
-      const rows = items.map(function (item) {
-        return {
-          _id: item.id,
-          week_label: formatWeekLabel(item.week_range),
-          article_count_label: item.article_count + '건',
-          status: item.status,
-          created_date: formatDate(item.created_at),
-        };
-      });
-
-      grid.resetData(rows);
+      renderTable(items);
       updateQuickStatus(items);
     } catch (err) {
-      grid.resetData([]);
+      recentTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--color-text-muted);">이력 없음</td></tr>';
       showToast(err.message, 'error');
     }
   }

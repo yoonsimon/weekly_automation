@@ -1,5 +1,5 @@
 /**
- * notices.js - 공지사항 수집 + 선별 페이지 로직 (TOAST UI Grid)
+ * notices.js - 공지사항 수집 + 선별 페이지 로직 (plain HTML table)
  *
  * States:
  *   1. idle     - "수집하기" 버튼
@@ -11,7 +11,7 @@
   'use strict';
 
   // ------------------------------------------------------------------
-  // Source → (경쟁사명, 구분명) mapping (matches backend)
+  // Source -> (경쟁사명, 구분명) mapping (matches backend)
   // ------------------------------------------------------------------
 
   var SOURCE_MAP = {
@@ -68,7 +68,8 @@
   // ------------------------------------------------------------------
 
   var collectResult = null;
-  var gridInstances = [];       // { grid, platformName }[]
+  // platformData: [ { name, notices: [ { date, title, url } ] } ]
+  var platformData = [];
   var allNoticesFlat = [];      // { source, date, title, url }[]
 
   function showState(name) {
@@ -78,20 +79,25 @@
   }
 
   // ------------------------------------------------------------------
-  // Markdown generation from selected notices
+  // Checkbox-based selection helpers
   // ------------------------------------------------------------------
 
   function getSelectedNotices() {
     var selected = [];
-    gridInstances.forEach(function (entry) {
-      var checkedRows = entry.grid.getCheckedRows();
-      checkedRows.forEach(function (row) {
-        selected.push({
-          source: entry.platformName,
-          date: row.rawDate || null,
-          title: row.title,
-          url: row.url,
-        });
+    platformData.forEach(function (pEntry) {
+      var container = document.getElementById('platform-table-' + pEntry.name);
+      if (!container) return;
+      container.querySelectorAll('.notice-check:checked').forEach(function (cb) {
+        var idx = parseInt(cb.dataset.noticeIdx, 10);
+        var n = pEntry.notices[idx];
+        if (n) {
+          selected.push({
+            source: pEntry.name,
+            date: n.date || null,
+            title: n.title,
+            url: n.url,
+          });
+        }
       });
     });
     // Sort by date ascending (null last)
@@ -103,6 +109,10 @@
     });
     return selected;
   }
+
+  // ------------------------------------------------------------------
+  // Markdown generation from selected notices
+  // ------------------------------------------------------------------
 
   function buildMarkdownTable(notices) {
     var lines = [
@@ -135,11 +145,12 @@
     }
 
     // Update per-platform counts
-    gridInstances.forEach(function (entry) {
-      var badge = document.getElementById('selected-count-' + entry.platformName);
-      if (badge) {
-        var checked = entry.grid.getCheckedRows().length;
-        var gridTotal = entry.grid.getData().length;
+    platformData.forEach(function (pEntry) {
+      var badge = document.getElementById('selected-count-' + pEntry.name);
+      var container = document.getElementById('platform-table-' + pEntry.name);
+      if (badge && container) {
+        var checked = container.querySelectorAll('.notice-check:checked').length;
+        var gridTotal = pEntry.notices.length;
         badge.textContent = checked + '/' + gridTotal;
       }
     });
@@ -228,15 +239,11 @@
   btnRecollect.addEventListener('click', doCollect);
 
   // ------------------------------------------------------------------
-  // Render results (TOAST UI Grid per platform with checkboxes)
+  // Render results (plain HTML table per platform with checkboxes)
   // ------------------------------------------------------------------
 
   function renderResults(data) {
-    // Destroy previous grid instances
-    gridInstances.forEach(function (entry) {
-      try { entry.grid.destroy(); } catch (e) { /* ignore */ }
-    });
-    gridInstances.length = 0;
+    platformData.length = 0;
     allNoticesFlat.length = 0;
 
     // Week range label
@@ -275,76 +282,95 @@
         platformsContainer.appendChild(card);
       } else {
         var gridContainer = document.createElement('div');
+        gridContainer.id = 'platform-table-' + platform.name;
         card.appendChild(gridContainer);
         platformsContainer.appendChild(card);
 
-        var gridData = platform.notices.map(function (n) {
+        // Store platform data for later retrieval
+        var pEntry = { name: platform.name, notices: [] };
+
+        var tableHtml = '<table class="data-table data-table--compact">' +
+          '<thead><tr><th style="width:40px;text-align:center;"><input type="checkbox" class="check-all-platform" data-platform="' + escapeHtml(platform.name) + '" checked></th>' +
+          '<th style="width:100px;">날짜</th><th>제목</th></tr></thead><tbody>';
+
+        platform.notices.forEach(function (n, ni) {
+          pEntry.notices.push({
+            date: n.date || null,
+            title: n.title,
+            url: n.url || '#',
+          });
           allNoticesFlat.push({
             source: platform.name,
             date: n.date || null,
             title: n.title,
             url: n.url,
           });
-          return {
-            rawDate: n.date || null,
-            date: n.date || '-',
-            title: n.title,
-            url: n.url || '#',
-          };
+          tableHtml += '<tr>' +
+            '<td style="text-align:center;"><input type="checkbox" class="notice-check" data-platform="' + escapeHtml(platform.name) + '" data-notice-idx="' + ni + '" checked></td>' +
+            '<td>' + escapeHtml(n.date || '-') + '</td>' +
+            '<td><a href="' + escapeHtml(n.url || '#') + '" target="_blank" rel="noopener" style="color:var(--color-primary);">' + escapeHtml(n.title) + '</a></td>' +
+            '</tr>';
+        });
+        tableHtml += '</tbody></table>';
+        gridContainer.innerHTML = tableHtml;
+
+        platformData.push(pEntry);
+
+        // Listen for individual checkbox changes
+        gridContainer.querySelectorAll('.notice-check').forEach(function (cb) {
+          cb.addEventListener('change', function () {
+            updateCheckAllState(cb.dataset.platform);
+            updateSelectionState();
+          });
         });
 
-        var gridInstance = new tui.Grid({
-          el: gridContainer,
-          columns: [
-            { header: '날짜', name: 'date', width: 100 },
-            {
-              header: '제목',
-              name: 'title',
-              renderer: { type: NoticeTitleRenderer },
-            },
-          ],
-          rowHeaders: ['checkbox'],
-          data: gridData,
-          bodyHeight: 'auto',
-          scrollX: false,
-          scrollY: false,
-          rowHeight: 40,
-          minBodyHeight: 40,
+        // Listen for header "check all" checkbox
+        gridContainer.querySelectorAll('.check-all-platform').forEach(function (cb) {
+          cb.addEventListener('change', function () {
+            var pName = cb.dataset.platform;
+            var container = document.getElementById('platform-table-' + pName);
+            if (!container) return;
+            var checks = container.querySelectorAll('.notice-check');
+            checks.forEach(function (c) { c.checked = cb.checked; });
+            updateSelectionState();
+          });
         });
-
-        // Check all rows by default
-        gridInstance.checkAll();
-
-        // Listen for check/uncheck events
-        gridInstance.on('check', function () { updateSelectionState(); });
-        gridInstance.on('uncheck', function () { updateSelectionState(); });
-        gridInstance.on('checkAll', function () { updateSelectionState(); });
-        gridInstance.on('uncheckAll', function () { updateSelectionState(); });
-
-        gridInstances.push({ grid: gridInstance, platformName: platform.name });
       }
     }
 
     // Toggle all buttons
     document.querySelectorAll('.toggle-all-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var platformName = btn.dataset.platform;
-        var entry = gridInstances.find(function (e) { return e.platformName === platformName; });
-        if (!entry) return;
-        var checkedCount = entry.grid.getCheckedRows().length;
-        var totalCount = entry.grid.getData().length;
-        if (checkedCount === totalCount) {
-          entry.grid.uncheckAll();
-          btn.textContent = '전체 선택';
-        } else {
-          entry.grid.checkAll();
-          btn.textContent = '전체 해제';
-        }
+        var pName = btn.dataset.platform;
+        var container = document.getElementById('platform-table-' + pName);
+        if (!container) return;
+        var checks = container.querySelectorAll('.notice-check');
+        var allChecked = Array.prototype.every.call(checks, function (c) { return c.checked; });
+        checks.forEach(function (c) { c.checked = !allChecked; });
+        btn.textContent = allChecked ? '전체 선택' : '전체 해제';
+        updateCheckAllState(pName);
+        updateSelectionState();
       });
     });
 
     // Initial state
     updateSelectionState();
+  }
+
+  function updateCheckAllState(platformName) {
+    var container = document.getElementById('platform-table-' + platformName);
+    if (!container) return;
+    var checks = container.querySelectorAll('.notice-check');
+    var checkAll = container.querySelector('.check-all-platform');
+    if (!checkAll) return;
+    var allChecked = Array.prototype.every.call(checks, function (c) { return c.checked; });
+    checkAll.checked = allChecked;
+
+    // Also update toggle button text
+    var toggleBtn = document.querySelector('.toggle-all-btn[data-platform="' + platformName + '"]');
+    if (toggleBtn) {
+      toggleBtn.textContent = allChecked ? '전체 해제' : '전체 선택';
+    }
   }
 
   // ------------------------------------------------------------------
@@ -434,6 +460,12 @@
   var noticeWeekTitle = document.getElementById('notice-week-title');
   if (noticeWeekTitle) {
     noticeWeekTitle.textContent = getCurrentWeekLabel() + ' 플랫폼 공지사항';
+  }
+
+  // Auto-start if ?autostart=1
+  if (new URLSearchParams(window.location.search).get('autostart') === '1') {
+    history.replaceState(null, '', window.location.pathname);
+    doCollect();
   }
 
 })();

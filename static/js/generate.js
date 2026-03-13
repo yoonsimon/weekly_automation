@@ -316,6 +316,7 @@
               ${a.replacement_count > 0 ? `<span style="color:var(--color-text-muted);">교체 ${a.replacement_count}/${a.max_replacements}</span>` : ''}
             </div>
           </div>
+          ${a.image_url ? '<img class="article-card__thumb" src="' + escapeHtml(a.image_url) + '" alt="" loading="lazy" onerror="this.classList.add(\'article-card__thumb--empty\')">' : ''}
         </div>
         <div class="article-card__toggle">
           <button class="article-card__toggle-btn" data-toggle="${a.index}">본문 펼치기 &#9662;</button>
@@ -1073,4 +1074,10 @@
   btnStart.addEventListener('click', () => {
     startGeneration();
   });
+
+  // Auto-start if ?autostart=1
+  if (new URLSearchParams(window.location.search).get('autostart') === '1') {
+    history.replaceState(null, '', window.location.pathname);
+    startGeneration();
+  }
 })();

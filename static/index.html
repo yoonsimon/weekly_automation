@@ -4,13 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KR EC Trend 자동화 대시보드</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=8">
-  <!-- TOAST UI Grid -->
-  <link rel="stylesheet" href="https://uicdn.toast.com/grid/latest/tui-grid.css">
-  <!-- Flatpickr -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <!-- Flowbite -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=9">
 </head>
 <body>
 
@@ -79,7 +73,18 @@
             <a href="/log" class="section__link">전체 이력 보기 &rarr;</a>
           </div>
 
-          <div id="recent-grid"></div>
+          <table class="data-table" id="recent-table">
+            <thead>
+              <tr>
+                <th>기간</th>
+                <th style="width:100px;text-align:center;">기사수</th>
+                <th style="width:120px;text-align:center;">상태</th>
+                <th style="width:150px;">생성일</th>
+                <th style="width:100px;text-align:center;"></th>
+              </tr>
+            </thead>
+            <tbody id="recent-tbody"></tbody>
+          </table>
         </section>
 
       </main>
@@ -116,10 +121,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flowbite@2/dist/flowbite.min.js"></script>
   <script src="/static/js/api.js?v=4"></script>
   <script src="/static/js/dashboard.js?v=4"></script>
 </body>
